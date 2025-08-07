@@ -65,9 +65,12 @@
         <div>
           <h4 class="theme-label mb-2">{{ templateSelectText }}</h4>
           <TemplateSelect
+            ref="iterateTemplateSelectRef"
             :modelValue="selectedIterateTemplate"
             @update:modelValue="$emit('update:selectedIterateTemplate', $event)"
             :type="templateType"
+            :optimization-mode="optimizationMode"
+            :services="services"
             @manage="$emit('openTemplateManager', templateType)"
           />
         </div>
@@ -106,7 +109,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, watch, type Ref } from 'vue'
 import { useToast } from '../composables/useToast'
 import TemplateSelect from './TemplateSelect.vue'
 import Modal from './Modal.vue'
@@ -115,6 +118,7 @@ import type {
   Template,
   PromptRecord
 } from '@prompt-optimizer/core'
+import type { AppServices } from '../types/services'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -157,13 +161,21 @@ const props = defineProps({
   originalPrompt: {
     type: String,
     default: ''
+  },
+  optimizationMode: {
+    type: String as () => import('@prompt-optimizer/core').OptimizationMode,
+    required: true
+  },
+  services: {
+    type: Object as () => Ref<AppServices | null>,
+    required: true
   }
 })
 
 const emit = defineEmits<{
   'update:optimizedPrompt': [value: string];
   'iterate': [payload: IteratePayload];
-  'openTemplateManager': [type: 'optimize' | 'iterate'];
+  'openTemplateManager': [type: 'optimize' | 'userOptimize' | 'iterate'];
   'update:selectedIterateTemplate': [template: Template | null];
   'switchVersion': [version: PromptRecord];
   'templateSelect': [template: Template];
@@ -174,6 +186,7 @@ const iterateInput = ref('')
 const templateType = ref<'optimize' | 'iterate'>('iterate')
 
 const outputDisplayRef = ref<InstanceType<typeof OutputDisplay> | null>(null);
+const iterateTemplateSelectRef = ref<{ refresh?: () => void } | null>(null);
 
 // 计算标题文本
 const templateTitleText = computed(() => {
@@ -267,6 +280,17 @@ watch([() => props.isOptimizing, () => props.isIterating], ([newOptimizing, newI
     }
   }
 }, { immediate: false })
+
+// 暴露刷新迭代模板选择的方法
+const refreshIterateTemplateSelect = () => {
+  if (iterateTemplateSelectRef.value?.refresh) {
+    iterateTemplateSelectRef.value.refresh()
+  }
+}
+
+defineExpose({
+  refreshIterateTemplateSelect
+})
 
 </script>
 

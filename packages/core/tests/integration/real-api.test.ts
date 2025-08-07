@@ -2,6 +2,10 @@ import { describe, it, expect, beforeEach, beforeAll } from 'vitest'
 import { ModelManager, HistoryManager, TemplateManager, PromptService } from '../../src'
 import { LocalStorageProvider } from '../../src/services/storage/localStorageProvider'
 import { createLLMService } from '../../src/services/llm/service'
+import { createTemplateManager } from '../../src/services/template/manager'
+import { createTemplateLanguageService } from '../../src/services/template/languageService'
+import { createModelManager } from '../../src/services/model/manager'
+import { createHistoryManager } from '../../src/services/history/manager'
 
 /**
  * 真实API集成测试
@@ -34,9 +38,12 @@ describe('Real API Integration Tests', () => {
 
   beforeEach(async () => {
     storage = new LocalStorageProvider()
-    modelManager = new ModelManager(storage)
-    historyManager = new HistoryManager(storage)
-    templateManager = new TemplateManager(storage)
+    modelManager = createModelManager(storage)
+    historyManager = createHistoryManager(storage)
+    
+    const languageService = createTemplateLanguageService(storage)
+    templateManager = createTemplateManager(storage, languageService)
+
     
     const llmService = createLLMService(modelManager)
     promptService = new PromptService(modelManager, llmService, templateManager, historyManager)
@@ -151,8 +158,8 @@ describe('Real API Integration Tests', () => {
         name: 'Google Gemini',
         baseURL: 'https://generativelanguage.googleapis.com/v1beta',
         apiKey: process.env.VITE_GEMINI_API_KEY!,
-        models: ['gemini-2.0-flash-exp'],
-        defaultModel: 'gemini-2.0-flash-exp',
+        models: ['gemini-2.0-flash'],
+        defaultModel: 'gemini-2.0-flash',
         enabled: true,
         provider: 'gemini' as const
       }
@@ -169,6 +176,16 @@ describe('Real API Integration Tests', () => {
       expect(result).toBeDefined()
       expect(typeof result).toBe('string')
       expect(result.length).toBeGreaterThan(0)
+
+      // 模拟UI层保存历史记录
+      await historyManager.createNewChain({
+        id: `test_${Date.now()}`,
+        originalPrompt: request.targetPrompt,
+        optimizedPrompt: result,
+        type: 'optimize',
+        modelKey: request.modelKey,
+        timestamp: Date.now()
+      })
 
       // 验证历史记录已保存
       const records = await historyManager.getRecords()
@@ -208,6 +225,16 @@ describe('Real API Integration Tests', () => {
       expect(result).toBeDefined()
       expect(typeof result).toBe('string')
       expect(result.length).toBeGreaterThan(0)
+
+      // 模拟UI层保存历史记录
+      await historyManager.createNewChain({
+        id: `test_${Date.now()}`,
+        originalPrompt: request.targetPrompt,
+        optimizedPrompt: result,
+        type: 'optimize',
+        modelKey: request.modelKey,
+        timestamp: Date.now()
+      })
 
       // 验证历史记录已保存
       const records = await historyManager.getRecords()
@@ -251,6 +278,16 @@ describe('Real API Integration Tests', () => {
 
       expect(typeof optimizeResult).toBe('string')
       expect(optimizeResult.length).toBeGreaterThan(0)
+
+      // 模拟UI层保存历史记录
+      await historyManager.createNewChain({
+        id: `test_${Date.now()}`,
+        originalPrompt: request.targetPrompt,
+        optimizedPrompt: optimizeResult,
+        type: 'optimize',
+        modelKey: request.modelKey,
+        timestamp: Date.now()
+      })
 
       // 验证历史记录已保存
       const records = await historyManager.getRecords()

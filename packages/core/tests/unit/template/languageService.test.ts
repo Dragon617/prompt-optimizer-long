@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TemplateLanguageService } from '../../../src/services/template/languageService';
 import { createMockStorage } from '../../mocks/mockStorage';
+import { PreferenceService } from '../../../src/services/preference/service';
+import { MemoryStorageProvider } from '../../../src/services/storage/memoryStorageProvider';
 
 describe('TemplateLanguageService', () => {
   let service: TemplateLanguageService;
   let mockStorage: ReturnType<typeof createMockStorage>;
+  let mockPreferenceService: PreferenceService;
 
   beforeEach(() => {
     // Mock navigator.language to English for consistent test environment
@@ -12,9 +15,11 @@ describe('TemplateLanguageService', () => {
       value: 'en-US',
       configurable: true
     });
-    
+
     mockStorage = createMockStorage();
-    service = new TemplateLanguageService(mockStorage);
+    const memoryStorage = new MemoryStorageProvider();
+    mockPreferenceService = new PreferenceService(memoryStorage);
+    service = new TemplateLanguageService(mockPreferenceService);
   });
 
   afterEach(() => {
@@ -24,36 +29,37 @@ describe('TemplateLanguageService', () => {
   describe('initialization', () => {
     it('should initialize with default language when no saved preference', async () => {
       mockStorage.getItem.mockResolvedValue(null);
-      
+
       await service.initialize();
-      
-      expect(service.getCurrentLanguage()).toBe('en-US');
+
+      expect(await service.getCurrentLanguage()).toBe('en-US');
       expect(service.isInitialized()).toBe(true);
     });
 
     it('should load saved language preference', async () => {
-      mockStorage.getItem.mockResolvedValue('en-US');
-      
+      // Mock PreferenceService to return saved language
+      vi.spyOn(mockPreferenceService, 'get').mockResolvedValue('en-US');
+
       await service.initialize();
-      
-      expect(service.getCurrentLanguage()).toBe('en-US');
-      expect(mockStorage.getItem).toHaveBeenCalledWith('builtin-template-language');
+
+      expect(await service.getCurrentLanguage()).toBe('en-US');
+      expect(mockPreferenceService.get).toHaveBeenCalledWith('app:settings:ui:builtin-template-language', null);
     });
 
     it('should fallback to default language on invalid saved preference', async () => {
-      mockStorage.getItem.mockResolvedValue('invalid-lang');
-      
+      vi.spyOn(mockPreferenceService, 'get').mockResolvedValue('invalid-lang');
+
       await service.initialize();
-      
-      expect(service.getCurrentLanguage()).toBe('en-US');
+
+      expect(await service.getCurrentLanguage()).toBe('en-US');
     });
 
     it('should handle storage errors gracefully', async () => {
-      mockStorage.getItem.mockRejectedValue(new Error('Storage error'));
-      
+      vi.spyOn(mockPreferenceService, 'get').mockRejectedValue(new Error('Storage error'));
+
       await service.initialize();
-      
-      expect(service.getCurrentLanguage()).toBe('en-US');
+
+      expect(await service.getCurrentLanguage()).toBe('en-US');
       expect(service.isInitialized()).toBe(true);
     });
   });
@@ -64,10 +70,12 @@ describe('TemplateLanguageService', () => {
     });
 
     it('should set language successfully', async () => {
+      vi.spyOn(mockPreferenceService, 'set').mockResolvedValue();
+
       await service.setLanguage('en-US');
-      
-      expect(service.getCurrentLanguage()).toBe('en-US');
-      expect(mockStorage.setItem).toHaveBeenCalledWith('builtin-template-language', 'en-US');
+
+      expect(await service.getCurrentLanguage()).toBe('en-US');
+      expect(mockPreferenceService.set).toHaveBeenCalledWith('app:settings:ui:builtin-template-language', 'en-US');
     });
 
     it('should reject invalid language', async () => {
@@ -78,26 +86,26 @@ describe('TemplateLanguageService', () => {
 
     it('should toggle between languages', async () => {
       // Start with detected language (en-US in test environment)
-      expect(service.getCurrentLanguage()).toBe('en-US');
-      
+      expect(await service.getCurrentLanguage()).toBe('en-US');
+
       // Toggle to Chinese
       const newLang1 = await service.toggleLanguage();
       expect(newLang1).toBe('zh-CN');
-      expect(service.getCurrentLanguage()).toBe('zh-CN');
-      
+      expect(await service.getCurrentLanguage()).toBe('zh-CN');
+
       // Toggle back to English
       const newLang2 = await service.toggleLanguage();
       expect(newLang2).toBe('en-US');
-      expect(service.getCurrentLanguage()).toBe('en-US');
+      expect(await service.getCurrentLanguage()).toBe('en-US');
     });
   });
 
   describe('utility methods', () => {
-    it('should validate languages correctly', () => {
-      expect(service.isValidLanguage('zh-CN')).toBe(true);
-      expect(service.isValidLanguage('en-US')).toBe(true);
-      expect(service.isValidLanguage('fr-FR')).toBe(false);
-      expect(service.isValidLanguage('')).toBe(false);
+    it('should validate languages correctly', async () => {
+      expect(await service.isValidLanguage('zh-CN')).toBe(true);
+      expect(await service.isValidLanguage('en-US')).toBe(true);
+      expect(await service.isValidLanguage('fr-FR')).toBe(false);
+      expect(await service.isValidLanguage('')).toBe(false);
     });
   });
 
@@ -108,12 +116,13 @@ describe('TemplateLanguageService', () => {
         value: 'zh-CN',
         configurable: true
       });
-      
-      mockStorage.getItem.mockResolvedValue(null);
-      const newService = new TemplateLanguageService(mockStorage);
+
+      const memoryStorage = new MemoryStorageProvider();
+      const newPreferenceService = new PreferenceService(memoryStorage);
+      const newService = new TemplateLanguageService(newPreferenceService);
       await newService.initialize();
-      
-      expect(newService.getCurrentLanguage()).toBe('zh-CN');
+
+      expect(await newService.getCurrentLanguage()).toBe('zh-CN');
     });
 
     it('should detect English browser language', async () => {
@@ -122,12 +131,13 @@ describe('TemplateLanguageService', () => {
         value: 'en-US',
         configurable: true
       });
-      
-      mockStorage.getItem.mockResolvedValue(null);
-      const newService = new TemplateLanguageService(mockStorage);
+
+      const memoryStorage = new MemoryStorageProvider();
+      const newPreferenceService = new PreferenceService(memoryStorage);
+      const newService = new TemplateLanguageService(newPreferenceService);
       await newService.initialize();
-      
-      expect(newService.getCurrentLanguage()).toBe('en-US');
+
+      expect(await newService.getCurrentLanguage()).toBe('en-US');
     });
 
     it('should default to English for unsupported browser languages', async () => {
@@ -137,18 +147,24 @@ describe('TemplateLanguageService', () => {
         configurable: true
       });
 
-      mockStorage.getItem.mockResolvedValue(null);
-      const newService = new TemplateLanguageService(mockStorage);
+      const memoryStorage = new MemoryStorageProvider();
+      const newPreferenceService = new PreferenceService(memoryStorage);
+      const newService = new TemplateLanguageService(newPreferenceService);
       await newService.initialize();
 
-      expect(newService.getCurrentLanguage()).toBe('en-US');
+      expect(await newService.getCurrentLanguage()).toBe('en-US');
     });
   });
 
   describe('instance behavior', () => {
     it('should create independent instances', () => {
-      const instance1 = new TemplateLanguageService();
-      const instance2 = new TemplateLanguageService();
+      const memoryStorage1 = new MemoryStorageProvider();
+      const preferenceService1 = new PreferenceService(memoryStorage1);
+      const memoryStorage2 = new MemoryStorageProvider();
+      const preferenceService2 = new PreferenceService(memoryStorage2);
+
+      const instance1 = new TemplateLanguageService(preferenceService1);
+      const instance2 = new TemplateLanguageService(preferenceService2);
 
       expect(instance1).not.toBe(instance2);
       expect(instance1).toBeInstanceOf(TemplateLanguageService);

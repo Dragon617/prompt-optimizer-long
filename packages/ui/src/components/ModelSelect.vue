@@ -60,11 +60,11 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+<script setup lang="ts">
+import { ref, computed, watch, onMounted, inject, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { modelManager } from '@prompt-optimizer/core'
 import { clickOutside } from '../directives/clickOutside'
+import type { AppServices } from '../types/services'
 
 const { t } = useI18n()
 
@@ -77,6 +77,7 @@ const props = defineProps({
     type: Boolean,
     default: false
   }
+  // modelManager现在通过inject获取，不再需要props
 })
 
 const emit = defineEmits(['update:modelValue', 'config'])
@@ -85,6 +86,26 @@ const isOpen = ref(false)
 const refreshTrigger = ref(0)
 const vClickOutside = clickOutside
 
+// 统一使用inject获取services
+const services = inject<Ref<AppServices | null>>('services')
+if (!services) {
+  throw new Error('[ModelSelect] services未正确注入，请确保在App组件中正确provide了services')
+}
+
+const getModelManager = computed(() => {
+  const servicesValue = services.value
+  if (!servicesValue) {
+    throw new Error('[ModelSelect] services未初始化，请确保应用已正确启动')
+  }
+
+  const manager = servicesValue.modelManager
+  if (!manager) {
+    throw new Error('[ModelSelect] modelManager未初始化，请确保服务已正确配置')
+  }
+
+  return manager
+})
+
 // 响应式数据存储
 const allModels = ref([])
 const enabledModels = ref([])
@@ -92,8 +113,13 @@ const enabledModels = ref([])
 // 加载模型数据
 const loadModels = async () => {
   try {
-    allModels.value = await modelManager.getAllModels()
-    enabledModels.value = await modelManager.getEnabledModels()
+    const manager = getModelManager.value
+    if (!manager) {
+      throw new Error('ModelManager not available')
+    }
+    
+    allModels.value = await manager.getAllModels()
+    enabledModels.value = await manager.getEnabledModels()
   } catch (error) {
     console.error('Failed to load models:', error)
     allModels.value = []

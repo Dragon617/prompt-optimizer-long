@@ -3,7 +3,7 @@
     <div 
       v-if="show"
       class="fixed inset-0 theme-mask z-50 flex items-center justify-center p-4"
-      @click="$emit('close')"
+      @click="close"
     >
       <div 
         class="theme-manager-container w-full max-w-md mx-auto"
@@ -15,7 +15,7 @@
             {{ $t('dataManager.title') }}
           </h2>
           <button
-            @click="$emit('close')"
+            @click="close"
             class="theme-manager-text-secondary hover:theme-manager-text transition-colors"
           >
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -154,18 +154,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, inject, onMounted, onUnmounted, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { dataManager } from '@prompt-optimizer/core'
 import { useToast } from '../composables/useToast'
+import type { IDataManager } from '@prompt-optimizer/core'
+import type { AppServices } from '../types/services'
 
 interface Props {
-  show: boolean
+  show: boolean;
+  // dataManager现在通过inject获取，不再需要props
 }
 
 interface Emits {
   (e: 'close'): void
   (e: 'imported'): void
+  (e: 'update:show', value: boolean): void
 }
 
 const props = defineProps<Props>()
@@ -174,15 +177,61 @@ const emit = defineEmits<Emits>()
 const { t } = useI18n()
 const toast = useToast()
 
+// 统一使用inject获取services
+const services = inject<Ref<AppServices | null>>('services')
+if (!services) {
+  throw new Error('[DataManager] services未正确注入，请确保在App组件中正确provide了services')
+}
+
+const getDataManager = computed(() => {
+  const servicesValue = services.value
+  if (!servicesValue) {
+    throw new Error('[DataManager] services未初始化，请确保应用已正确启动')
+  }
+
+  const manager = servicesValue.dataManager
+  if (!manager) {
+    throw new Error('[DataManager] dataManager未初始化，请确保服务已正确配置')
+  }
+
+  return manager
+})
+
 const isExporting = ref(false)
 const isImporting = ref(false)
 const selectedFile = ref<File | null>(null)
 const fileInput = ref<HTMLInputElement>()
 const isDragOver = ref(false)
 
+// --- Close Logic ---
+const close = () => {
+  emit('update:show', false)
+  emit('close')
+}
+
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape' && props.show) {
+    close()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown)
+})
+
 // 处理导出
 const handleExport = async () => {
   try {
+    const dataManager = getDataManager.value
+    if (!dataManager) {
+      toast.error(t('toast.error.dataManagerNotAvailable'))
+      return
+    }
+
     isExporting.value = true
     
     const data = await dataManager.exportAllData()
@@ -227,11 +276,16 @@ const clearSelectedFile = () => {
 // 处理导入
 const handleImport = async () => {
   if (!selectedFile.value) return
-
+  
   try {
     isImporting.value = true
     
     const content = await selectedFile.value.text()
+    const dataManager = getDataManager.value
+    if (!dataManager) {
+      toast.error(t('toast.error.dataManagerNotAvailable'))
+      return
+    }
     await dataManager.importAllData(content)
     
     toast.success(t('dataManager.import.success'))

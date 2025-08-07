@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { IImportExportable } from '../../interfaces/import-export';
+import type { BuiltinTemplateLanguage } from './languageService';
 
 /**
  * 提示词元数据
@@ -37,50 +39,61 @@ export interface Template {
  */
 export type TemplateSourceType = 'builtin' | 'localStorage';
 
-/**
- * 提示词管理器配置
- */
-export interface TemplateManagerConfig {
-  storageKey?: string;     // localStorage存储键名
-  cacheTimeout?: number;   // 缓存超时时间
-}
+// TemplateManagerConfig 已删除 - 配置参数从未被使用
 
 /**
  * 提示词管理器接口
  */
-export interface ITemplateManager {
-  /** 确保管理器已初始化 */
-  ensureInitialized(): Promise<void>;
-
-  /** 获取指定ID的模板 */
-  getTemplate(templateId: string): Template; // Stays synchronous
-
-  /** 保存模板 */
-  saveTemplate(template: Template): Promise<void>; // Async
-
-  /** 删除模板 */
-  deleteTemplate(templateId: string): Promise<void>; // Async
-
-  /** 列出所有模板 */
-  listTemplates(): Template[]; // Stays synchronous
-
-  /** 导出模板 */
-  exportTemplate(templateId: string): string; // Stays synchronous
-
-  /** 导入模板 */
-  importTemplate(templateJson: string): Promise<void>; // Async
-
-  /** 清除缓存 */
-  clearCache(templateId?: string): void; // Synchronous
-  
-  /** 按类型列出模板 */
-  listTemplatesByType(type: 'optimize' | 'userOptimize' | 'iterate'): Template[];
+export interface ITemplateManager extends IImportExportable {
+  /**
+   * Get a template by ID
+   */
+  getTemplate(id: string): Promise<Template>;
 
   /**
-   * 根据类型获取模板列表（已废弃）
-   * @deprecated 使用 listTemplatesByType 替代
+   * Save a template
    */
-  getTemplatesByType(type: 'optimize' | 'userOptimize' | 'iterate'): Template[];
+  saveTemplate(template: Template): Promise<void>;
+
+  /**
+   * Delete a template
+   */
+  deleteTemplate(id: string): Promise<void>;
+
+  /**
+   * List all templates
+   */
+  listTemplates(): Promise<Template[]>;
+
+  /**
+   * Export a template as JSON string
+   */
+  exportTemplate(id: string): Promise<string>;
+
+  /**
+   * Import a template from JSON string
+   */
+  importTemplate(jsonString: string): Promise<void>;
+
+  /**
+   * List templates by type
+   */
+  listTemplatesByType(type: 'optimize' | 'userOptimize' | 'iterate'): Promise<Template[]>;
+
+  /**
+   * Change built-in template language
+   */
+  changeBuiltinTemplateLanguage(language: BuiltinTemplateLanguage): Promise<void>;
+
+  /**
+   * Get current built-in template language
+   */
+  getCurrentBuiltinTemplateLanguage(): Promise<BuiltinTemplateLanguage>;
+
+  /**
+   * Get supported built-in template languages
+   */
+  getSupportedBuiltinTemplateLanguages(): Promise<BuiltinTemplateLanguage[]>;
 }
 
 /**

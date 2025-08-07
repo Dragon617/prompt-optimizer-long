@@ -2,12 +2,11 @@
   <div
     v-if="show"
     class="fixed inset-0 theme-mask z-[60] flex items-center justify-center"
-    @click="emit('update:show', false)"
+    @click="onBackdropClick"
   >
     <div
       class="w-full max-w-4xl h-[85vh] theme-history transform transition-all duration-300 ease-in-out"
       :class="show ? 'scale-100 opacity-100' : 'scale-95 opacity-0'"
-      @click.stop
     >
       <div class="h-full flex flex-col">
         <div class="flex-none p-3 sm:p-4 theme-history-header flex items-center justify-between">
@@ -22,7 +21,7 @@
             </button>
           </div>
           <button
-            @click.stop="emit('update:show', false)"
+            @click.stop="close"
             class="theme-manager-text-secondary hover:theme-manager-text transition-colors text-xl"
           >
             ×
@@ -40,8 +39,10 @@
                 <!-- 历史记录头部信息 -->
                 <div class="theme-history-card-header">
                   <div class="flex items-center justify-between mb-2">
-                    <div class="text-sm theme-manager-text-secondary">
-                      {{ t('common.createdAt') }} {{ formatDate(chain.rootRecord.timestamp) }}
+                    <div class="flex items-center gap-2 text-sm theme-manager-text-secondary">
+                      <span>{{ t('common.createdAt') }} {{ formatDate(chain.rootRecord.timestamp) }}</span>
+                      <span v-if="chain.rootRecord.type === 'optimize'" class="text-xs theme-manager-tag bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">{{ t('common.system') }}</span>
+                      <span v-if="chain.rootRecord.type === 'userOptimize'" class="text-xs theme-manager-tag bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">{{ t('common.user') }}</span>
                     </div>
                     <button
                       @click.stop="deleteChain(chain.chainId)"
@@ -135,11 +136,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, onMounted, computed, onUnmounted } from 'vue'
 import type { PropType } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PromptRecord, PromptRecordChain } from '@prompt-optimizer/core'
-import { historyManager } from '@prompt-optimizer/core'
 import { useToast } from '../composables/useToast'
 
 const props = defineProps({
@@ -166,9 +166,35 @@ const emit = defineEmits<{
 const toast = useToast()
 const expandedVersions = ref<Record<string, boolean>>({})
 
+// --- Close Logic ---
+const close = () => {
+  emit('update:show', false)
+}
+
+const onBackdropClick = (event: MouseEvent) => {
+  if (event.target === event.currentTarget) {
+    close()
+  }
+}
+
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape' && props.show) {
+    close()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown)
+})
+
 // 修改排序后的历史记录计算属性，使用props.history而不是直接调用historyManager.getAllChains()
+// 按照最后修改时间排序，与getAllChains()保持一致
 const sortedHistory = computed(() => {
-  return props.history.sort((a, b) => b.rootRecord.timestamp - a.rootRecord.timestamp)
+  return props.history.sort((a, b) => b.currentRecord.timestamp - a.currentRecord.timestamp)
 })
 
 // 切换版本展开/收起状态
@@ -203,7 +229,8 @@ const reuse = (record: PromptRecord, chain: PromptRecordChain) => {
   emit('reuse', {
     record,
     chainId: chain.chainId,
-    rootPrompt: chain.rootRecord.originalPrompt
+    rootPrompt: chain.rootRecord.originalPrompt,
+    chain
   })
   emit('update:show', false)
 }

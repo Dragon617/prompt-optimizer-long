@@ -14,13 +14,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import { i18n } from '../plugins/i18n'
-import { useStorage } from '../composables/useStorage'
+import { UI_SETTINGS_KEYS } from '@prompt-optimizer/core'
+import { usePreferences } from '../composables/usePreferenceManager'
+import type { Ref } from 'vue'
+import type { AppServices } from '../types/services'
 
-const storage = useStorage()
+const services = inject<Ref<AppServices | null>>('services')!;
+const { setPreference } = usePreferences(services);
 
-// 当前语言
 const currentLocale = computed(() => i18n.global.locale.value)
 
 /**
@@ -31,7 +34,7 @@ const toggleLanguage = async () => {
   i18n.global.locale.value = newLocale
   
   try {
-    await storage.setItem('preferred-language', newLocale)
+    await setPreference(UI_SETTINGS_KEYS.PREFERRED_LANGUAGE, newLocale)
   } catch (error) {
     console.error('保存语言设置失败:', error)
   }

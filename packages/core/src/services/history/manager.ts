@@ -1,22 +1,24 @@
 import { IHistoryManager, PromptRecord, PromptRecordChain } from './types';
 import { IStorageProvider } from '../storage/types';
-import { StorageFactory } from '../storage/factory';
 import { StorageAdapter } from '../storage/adapter';
 import { RecordNotFoundError, RecordValidationError, StorageError, HistoryError } from './errors';
 import { v4 as uuidv4 } from 'uuid';
-import { modelManager } from '../model/manager';
+import { IModelManager } from '../model/types';
+import { CORE_SERVICE_KEYS } from '../../constants/storage-keys';
+import { ImportExportError } from '../../interfaces/import-export';
 
 /**
  * History Manager implementation
  */
 export class HistoryManager implements IHistoryManager {
-  private readonly storageKey = 'prompt_history';
+  private readonly storageKey = CORE_SERVICE_KEYS.PROMPT_HISTORY;
   private readonly maxRecords = 50; // Maximum 50 records
-  private readonly storage: IStorageProvider;
+  private readonly storage: StorageAdapter;
+  private readonly modelManager: IModelManager;
 
-  constructor(storageProvider: IStorageProvider) {
-    // 使用适配器确保所有存储提供者都支持高级方法
+  constructor(storageProvider: IStorageProvider, modelManager: IModelManager) {
     this.storage = new StorageAdapter(storageProvider);
+    this.modelManager = modelManager;
   }
 
   /**
@@ -28,9 +30,10 @@ export class HistoryManager implements IHistoryManager {
     if (!modelKey) return undefined;
     
     try {
-      const model = await modelManager.getModel(modelKey);
-      return model?.defaultModel;
+      const model = await this.modelManager.getModel(modelKey);
+      return model?.name;
     } catch (err) {
+      // If model not found or other error, simply return undefined
       return undefined;
     }
   }
@@ -89,8 +92,8 @@ export class HistoryManager implements IHistoryManager {
       
       const records: PromptRecord[] = JSON.parse(data);
       
-      // Sort records by timestamp (newest first)
-      return records.sort((a, b) => b.timestamp - a.timestamp);
+      // 直接返回记录，排序逻辑由调用者根据需求处理
+      return records;
     } catch (err) {
       throw new StorageError('Failed to get history records', 'read');
     }
@@ -348,7 +351,111 @@ export class HistoryManager implements IHistoryManager {
     
     return results;
   }
+
+  /**
+   * Delete a chain by its ID
+   * @param chainId The ID of the chain to delete
+   */
+  async deleteChain(chainId: string): Promise<void> {
+    const allRecords = await this.getRecords();
+    const recordsToKeep = allRecords.filter(record => record.chainId !== chainId);
+
+    if (recordsToKeep.length === allRecords.length) {
+      throw new RecordNotFoundError(`Chain with ID ${chainId} not found`, chainId);
+    }
+
+    await this.saveToStorage(recordsToKeep);
+  }
+
+  // 实现 IImportExportable 接口
+
+  /**
+   * 导出所有历史记录
+   */
+  async exportData(): Promise<PromptRecord[]> {
+    try {
+      return await this.getRecords();
+    } catch (error) {
+      throw new ImportExportError(
+        'Failed to export history data',
+        await this.getDataType(),
+        error as Error
+      );
+    }
+  }
+
+  /**
+   * 导入历史记录
+   */
+  async importData(data: any): Promise<void> {
+    if (!(await this.validateData(data))) {
+      throw new Error('Invalid history data format: data must be an array of prompt records');
+    }
+
+    const records = data as PromptRecord[];
+
+    // 先清空所有现有历史记录（替换模式）
+    await this.clearHistory();
+
+    const failedRecords: { record: PromptRecord; error: Error }[] = [];
+
+    // Import each record individually, capturing failures
+    for (const record of records) {
+      try {
+        // 保持原始ID，维护数据关联性（chainId、previousId等）
+        await this.addRecord(record);
+      } catch (error) {
+        console.warn('Failed to import history record:', error);
+        failedRecords.push({ record, error: error as Error });
+      }
+    }
+
+    if (failedRecords.length > 0) {
+      console.warn(`Failed to import ${failedRecords.length} history records`);
+      // 不抛出错误，允许部分导入成功
+    }
+  }
+
+  /**
+   * 获取数据类型标识
+   */
+  async getDataType(): Promise<string> {
+    return 'history';
+  }
+
+  /**
+   * 验证历史记录数据格式
+   */
+  async validateData(data: any): Promise<boolean> {
+    if (!Array.isArray(data)) {
+      return false;
+    }
+
+    return data.every(item =>
+      typeof item === 'object' &&
+      item !== null &&
+      typeof item.id === 'string' &&
+      typeof item.originalPrompt === 'string' &&
+      typeof item.optimizedPrompt === 'string' &&
+      typeof item.type === 'string' &&
+      typeof item.chainId === 'string' &&
+      typeof item.version === 'number' &&
+      typeof item.timestamp === 'number' &&
+      typeof item.modelKey === 'string' &&
+      typeof item.templateId === 'string'
+    );
+  }
 }
 
-// Export singleton instance
-export const historyManager = new HistoryManager(StorageFactory.createDefault());
+/**
+ * 创建聊天历史管理器的工厂函数
+ * @param storageProvider 存储提供器实例
+ * @param modelManager 模型管理器实例
+ * @returns 聊天历史管理器实例
+ */
+export function createHistoryManager(
+  storageProvider: IStorageProvider,
+  modelManager: IModelManager
+): HistoryManager {
+  return new HistoryManager(storageProvider, modelManager);
+}

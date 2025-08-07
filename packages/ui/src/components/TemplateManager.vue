@@ -1,11 +1,11 @@
 <template>
   <div
+    v-if="show"
     class="fixed inset-0 theme-mask z-[60] flex items-center justify-center overflow-y-auto"
-    @click="$emit('close')"
+    @click="onBackdropClick"
   >
     <div
       class="relative theme-manager-container w-full max-w-4xl m-4"
-      @click.stop
     >
       <div class="p-6 space-y-6">
         <!-- 标题和关闭按钮 -->
@@ -23,14 +23,16 @@
               <span class="hidden md:inline">{{ t('templateManager.syntaxGuide') }}</span>
             </button>
             <!-- Built-in Template Language Switch -->
-            <BuiltinTemplateLanguageSwitch @language-changed="handleLanguageChanged" />
+            <BuiltinTemplateLanguageSwitch 
+              @language-changed="handleLanguageChanged" 
+            />
           </div>
           <div class="flex items-center space-x-4">
             <span v-if="selectedTemplate" class="text-sm theme-manager-text-secondary">
               {{ t('common.currentTemplate') }}: {{ selectedTemplate.name }}
             </span>
             <button
-              @click="$emit('close')"
+              @click="close"
               class="theme-manager-text-secondary hover:theme-manager-text transition-colors text-xl"
             >
               ×
@@ -237,11 +239,10 @@
           <!-- 查看/编辑模态框 -->
           <div v-if="showAddForm || editingTemplate || viewingTemplate" 
                class="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto py-4"
-               @click="viewingTemplate ? cancelEdit() : null">
+               @click="onEditModalBackdropClick">
             <div class="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
             
-            <div class="relative theme-manager-container w-full max-w-4xl mx-4 my-4 max-h-[calc(100vh-2rem)] overflow-y-auto z-10"
-                 @click.stop>
+            <div class="relative theme-manager-container w-full max-w-4xl mx-4 my-4 max-h-[calc(100vh-2rem)] overflow-y-auto z-10">
               <div class="p-6 space-y-6">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center space-x-3">
@@ -254,11 +255,11 @@
                     <span 
                       v-if="viewingTemplate || editingTemplate"
                       class="px-2 py-1 rounded text-xs font-medium"
-                      :class="(viewingTemplate || editingTemplate) && TemplateProcessor.isSimpleTemplate(viewingTemplate || editingTemplate) 
+                      :class="(viewingTemplate || editingTemplate) && TemplateProcessor.isSimpleTemplate((viewingTemplate || editingTemplate)!) 
                         ? 'bg-blue-100 text-blue-700 border border-blue-200' 
                         : 'bg-purple-100 text-purple-700 border border-purple-200'"
                     >
-                      {{ (viewingTemplate || editingTemplate) && TemplateProcessor.isSimpleTemplate(viewingTemplate || editingTemplate) 
+                      {{ (viewingTemplate || editingTemplate) && TemplateProcessor.isSimpleTemplate((viewingTemplate || editingTemplate)!) 
                         ? '📝 ' + t('templateManager.simpleTemplate') 
                         : '⚡ ' + t('templateManager.advancedTemplate') }}
                     </span>
@@ -291,7 +292,7 @@
                       v-model="form.name"
                       type="text"
                       required
-                      :readonly="viewingTemplate"
+                      :readonly="!!viewingTemplate"
                       class="theme-manager-input"
                       :class="{ 'opacity-75 cursor-not-allowed': viewingTemplate }"
                       :placeholder="t('template.namePlaceholder')"
@@ -346,7 +347,7 @@
                     <textarea
                       v-model="form.content"
                       required
-                      :readonly="viewingTemplate"
+                      :readonly="!!viewingTemplate"
                       rows="15"
                       class="theme-manager-input resize-y font-mono text-sm min-h-[200px] max-h-[400px]"
                       :class="{ 'opacity-75 cursor-not-allowed': viewingTemplate }"
@@ -366,7 +367,7 @@
                       <button
                         type="button"
                         @click="addMessage"
-                        :disabled="viewingTemplate"
+                        :disabled="!!viewingTemplate"
                         class="text-sm inline-flex items-center gap-1 theme-manager-button-secondary"
                         :class="{ 'opacity-50 cursor-not-allowed': viewingTemplate }"
                       >
@@ -389,7 +390,7 @@
                           <div class="flex-shrink-0">
                             <select
                               v-model="message.role"
-                              :disabled="viewingTemplate"
+                              :disabled="!!viewingTemplate"
                               class="theme-manager-input text-sm w-24"
                               :class="{ 'opacity-75 cursor-not-allowed': viewingTemplate }"
                             >
@@ -403,7 +404,7 @@
                           <div class="flex-1">
                             <textarea
                               v-model="message.content"
-                              :readonly="viewingTemplate"
+                              :readonly="!!viewingTemplate"
                               class="theme-manager-input font-mono text-sm w-full resize-y message-content-textarea"
                               :style="{ 
                                 minHeight: '80px',
@@ -488,7 +489,7 @@
                     <label class="block text-sm font-medium theme-manager-text mb-1.5">{{ t('common.description') }}</label>
                     <textarea
                       v-model="form.description"
-                      :readonly="viewingTemplate"
+                      :readonly="!!viewingTemplate"
                       rows="2"
                       class="theme-manager-input resize-y min-h-[60px] max-h-[120px]"
                       :class="{ 'opacity-75 cursor-not-allowed': viewingTemplate }"
@@ -520,11 +521,10 @@
           <!-- Syntax Guide Panel -->
           <div v-if="showSyntaxGuide"
                class="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto py-4"
-               @click="showSyntaxGuide = false">
+               @click="onSyntaxGuideBackdropClick">
             <div class="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
 
-            <div class="relative theme-manager-container w-full max-w-4xl mx-4 my-4 max-h-[calc(100vh-2rem)] overflow-y-auto z-10"
-                 @click.stop>
+            <div class="relative theme-manager-container w-full max-w-4xl mx-4 my-4 max-h-[calc(100vh-2rem)] overflow-y-auto z-10">
               <div class="p-6 space-y-6">
                 <div class="flex items-center justify-between">
                   <h3 class="text-xl font-semibold theme-manager-text">{{ t('templateManager.syntaxGuide') }}</h3>
@@ -556,11 +556,10 @@
           <!-- Migration Dialog -->
           <div v-if="migrationDialog.show"
                class="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto"
-               @click="migrationDialog.show = false">
+               @click="onMigrationDialogBackdropClick">
             <div class="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
 
-            <div class="relative theme-manager-container w-full max-w-2xl m-4 z-10"
-                 @click.stop>
+            <div class="relative theme-manager-container w-full max-w-2xl m-4 z-10">
               <div class="p-6 space-y-6">
                 <div class="flex items-center justify-between">
                   <h3 class="text-xl font-semibold theme-manager-text">{{ t('templateManager.convertToAdvanced') }}</h3>
@@ -621,11 +620,11 @@
               @change="handleFileImport"
             />
             <button
-              @click="$refs.fileInput.click()"
+              @click="fileInput?.click()"
               class="text-sm inline-flex gap-1 theme-manager-button-secondary"
             >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 my-[2px]">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m0-3-3-3m0 0-3 3m3-3v11.25m6-2.25h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m0-3-3-3m0 0-3 3m3-3v11.25m6-2.25h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25-2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" />
             </svg>
               {{ t('common.selectFile') }}
             </button>
@@ -637,40 +636,59 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, computed, watch, nextTick } from 'vue'
+<script setup lang="ts">
+import { ref, onMounted, computed, watch, nextTick, inject } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { templateManager, TemplateProcessor } from '@prompt-optimizer/core'
+import { TemplateProcessor, type Template, type MessageTemplate } from '@prompt-optimizer/core'
 import { useToast } from '../composables/useToast'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import BuiltinTemplateLanguageSwitch from './BuiltinTemplateLanguageSwitch.vue'
 import { syntaxGuideContent } from '../docs/syntax-guide'
+import type { ITemplateManager, TemplateLanguageService } from '@prompt-optimizer/core'
+import { i18n } from '../plugins/i18n'
 
 const { t } = useI18n()
 
-const props = defineProps({
-  selectedSystemOptimizeTemplate: Object,
-  selectedUserOptimizeTemplate: Object,
-  selectedIterateTemplate: Object,
-  templateType: {
-    type: String,
-    required: true,
-    validator: (value) => ['optimize', 'userOptimize', 'iterate'].includes(value)
-  }
-})
+interface Services {
+  templateManager: ITemplateManager;
+  templateLanguageService: TemplateLanguageService;
+}
 
-const emit = defineEmits(['close', 'select'])
+// 通过依赖注入获取服务
+const services = inject<{ value: Services | null }>('services')
+if (!services?.value) {
+  throw new Error('TemplateManager Error: The required "services" were not provided by a parent component. Make sure this component is a child of a component that uses "provide(\'services\', ...)"')
+}
+
+const getTemplateManager = computed(() => services.value!.templateManager)
+const getTemplateLanguageService = computed(() => services.value!.templateLanguageService)
+
+const props = defineProps<{
+  selectedSystemOptimizeTemplate?: Template,
+  selectedUserOptimizeTemplate?: Template,
+  selectedIterateTemplate?: Template,
+  templateType: 'optimize' | 'userOptimize' | 'iterate',
+  show: boolean
+}>()
+
+const emit = defineEmits(['close', 'select', 'update:show', 'languageChanged'])
 const toast = useToast()
 
-const templates = ref([])
+const templates = ref<Template[]>([])
 const currentCategory = ref(getCategoryFromProps())
 const currentType = computed(() => getCurrentTemplateType())
 const showAddForm = ref(false)
-const editingTemplate = ref(null)
-const viewingTemplate = ref(null)
+const editingTemplate = ref<Template | null>(null)
+const viewingTemplate = ref<Template | null>(null)
 const showSyntaxGuide = ref(false)
 
-const form = ref({
+const form = ref<{
+  name: string
+  content: string
+  description: string
+  isAdvanced: boolean
+  messages: MessageTemplate[]
+}>({
   name: '',
   content: '',
   description: '',
@@ -678,7 +696,12 @@ const form = ref({
   messages: []
 })
 
-const migrationDialog = ref({
+const migrationDialog = ref<{
+  show: boolean
+  template: Template | null
+  original: string
+  converted: MessageTemplate[]
+}>({
   show: false,
   template: null,
   original: '',
@@ -713,9 +736,18 @@ function getCategoryFromProps() {
   }
 }
 
-// 获取当前模板类型
-function getCurrentTemplateType() {
-  return props.templateType
+// 获取当前模板类型 - 根据当前分类而不是props
+function getCurrentTemplateType(): 'optimize' | 'userOptimize' | 'iterate' {
+  switch (currentCategory.value) {
+    case 'system-optimize':
+      return 'optimize'
+    case 'user-optimize':
+      return 'userOptimize'
+    case 'iterate':
+      return 'iterate'
+    default:
+      return 'optimize'
+  }
 }
 
 // 获取当前选中的模板ID
@@ -738,7 +770,7 @@ function getCurrentCategoryLabel() {
 }
 
 // 检查是否为字符串模板
-const isStringTemplate = (template) => {
+const isStringTemplate = (template: Template) => {
   return typeof template.content === 'string'
 }
 
@@ -753,10 +785,10 @@ const processedPreview = computed(() => {
   }
 
   try {
-    const tempTemplate = {
+    const tempTemplate: Template = {
       id: 'preview',
       name: 'Preview',
-      content: form.value.messages,
+      content: JSON.parse(JSON.stringify(form.value.messages)),
       metadata: { version: '1.0', lastModified: Date.now(), templateType: currentType.value }
     }
     return TemplateProcessor.processTemplate(tempTemplate, sampleContext)
@@ -772,10 +804,8 @@ const processedPreview = computed(() => {
 // 加载提示词列表
 const loadTemplates = async () => {
   try {
-    // Ensure template manager is initialized
-    await templateManager.ensureInitialized()
-
-    const allTemplates = templateManager.listTemplates()
+    // 统一使用异步方法
+    const allTemplates = await getTemplateManager.value.listTemplates()
     templates.value = allTemplates
     console.log('加载到的提示词:', templates.value)
   } catch (error) {
@@ -785,22 +815,22 @@ const loadTemplates = async () => {
 }
 
 // 格式化日期
-const formatDate = (timestamp) => {
+const formatDate = (timestamp: number) => {
   if (!timestamp) return t('template.unknownTime')
   return new Date(timestamp).toLocaleString()
 }
 
 // 编辑提示词
-const editTemplate = (template) => {
+const editTemplate = (template: Template) => {
   editingTemplate.value = template
   const isAdvanced = Array.isArray(template.content)
 
   form.value = {
     name: template.name,
-    content: isAdvanced ? '' : template.content,
+    content: isAdvanced ? '' : template.content as string,
     description: template.metadata.description || '',
     isAdvanced,
-    messages: isAdvanced ? [...template.content] : []
+    messages: isAdvanced ? [...template.content] as MessageTemplate[] : []
   }
 
   // 等待DOM更新后初始化textarea高度
@@ -810,16 +840,16 @@ const editTemplate = (template) => {
 }
 
 // 查看提示词
-const viewTemplate = (template) => {
+const viewTemplate = (template: Template) => {
   viewingTemplate.value = template
   const isAdvanced = Array.isArray(template.content)
 
   form.value = {
     name: template.name,
-    content: isAdvanced ? '' : template.content,
+    content: isAdvanced ? '' : template.content as string,
     description: template.metadata.description || '',
     isAdvanced,
-    messages: isAdvanced ? [...template.content] : []
+    messages: isAdvanced ? [...template.content] as MessageTemplate[] : []
   }
 
   // 等待DOM更新后初始化textarea高度
@@ -869,12 +899,12 @@ const addMessage = () => {
 }
 
 // 移除消息
-const removeMessage = (index) => {
+const removeMessage = (index: number) => {
   form.value.messages.splice(index, 1)
 }
 
 // 移动消息
-const moveMessage = (index, direction) => {
+const moveMessage = (index: number, direction: number) => {
   const newIndex = index + direction
   if (newIndex >= 0 && newIndex < form.value.messages.length) {
     const messages = [...form.value.messages]
@@ -886,8 +916,8 @@ const moveMessage = (index, direction) => {
 }
 
 // 初始化textarea高度 - 只在打开时调用一次
-const initializeTextareaHeight = (textarea) => {
-  if (!textarea || textarea._initialized) return
+const initializeTextareaHeight = (textarea: HTMLTextAreaElement) => {
+  if (!textarea || (textarea as any)._initialized) return
   
   try {
     const minHeight = 80
@@ -908,17 +938,17 @@ const initializeTextareaHeight = (textarea) => {
     }
     
     textarea.style.height = initialHeight + 'px'
-    textarea._initialized = true
+    ;(textarea as any)._initialized = true
   } catch (error) {
     console.warn('Textarea initialization error:', error)
   }
 }
 
 // 显示迁移对话框
-const showMigrationDialog = (template) => {
-  if (!isStringTemplate(template)) return
+const showMigrationDialog = (template: Template) => {
+  if (!isStringTemplate(template) || typeof template.content !== 'string') return
 
-  const converted = [
+  const converted: MessageTemplate[] = [
     {
       role: 'system',
       content: template.content
@@ -941,7 +971,9 @@ const showMigrationDialog = (template) => {
 const applyMigration = async () => {
   try {
     const template = migrationDialog.value.template
-    const updatedTemplate = {
+    if (!template) return
+
+    const updatedTemplate: Template = {
       ...template,
       content: migrationDialog.value.converted,
       metadata: {
@@ -950,15 +982,16 @@ const applyMigration = async () => {
       }
     }
 
-    await templateManager.saveTemplate(updatedTemplate)
-    loadTemplates()
+    // ElectronProxy会自动处理序列化，这里不需要手动处理
+    await getTemplateManager.value.saveTemplate(updatedTemplate)
+    await loadTemplates()
 
     // 如果当前选中的模板被更新，重新选择
     const isCurrentSelected = getSelectedTemplateId() === template.id
 
     if (isCurrentSelected) {
       try {
-        const updated = templateManager.getTemplate(template.id)
+        const updated = getTemplateManager.value.getTemplate(template.id)
         if (updated) {
           const templateType = currentCategory.value === 'iterate' ? 'iterate' : 'optimize'
           emit('select', updated, templateType)
@@ -977,7 +1010,7 @@ const applyMigration = async () => {
 }
 
 // 提交表单
-const handleSubmit = () => {
+const handleSubmit = async () => {
   try {
     // 验证表单
     if (form.value.isAdvanced) {
@@ -1006,21 +1039,23 @@ const handleSubmit = () => {
       templateType: getCurrentTemplateType()
     }
 
-    const templateData = {
+    const templateData: Template = {
       id: editingTemplate.value?.id || generateUniqueTemplateId('user-template'),
       name: form.value.name,
-      content: form.value.isAdvanced ? form.value.messages : form.value.content,
+      content: form.value.isAdvanced ? JSON.parse(JSON.stringify(form.value.messages)) : form.value.content,
       metadata
     }
 
-    templateManager.saveTemplate(templateData)
-    loadTemplates()
+    // IPC层会自动处理序列化，这里不需要手动处理
+    await getTemplateManager.value.saveTemplate(templateData)
+    await loadTemplates()
 
     const isCurrentSelected = getSelectedTemplateId() === templateData.id
 
     if (editingTemplate.value && isCurrentSelected) {
       try {
-        const updatedTemplate = templateManager.getTemplate(templateData.id)
+        // 统一使用异步方法
+        const updatedTemplate = await getTemplateManager.value.getTemplate(templateData.id)
         if (updatedTemplate) {
           emit('select', updatedTemplate, getCurrentTemplateType());
         }
@@ -1038,10 +1073,10 @@ const handleSubmit = () => {
 }
 
 // 确认删除
-const confirmDelete = async (templateId) => {
+const confirmDelete = async (templateId: string) => {
   if (confirm(t('template.deleteConfirm'))) {
     try {
-      templateManager.deleteTemplate(templateId)
+      await getTemplateManager.value.deleteTemplate(templateId)
       await loadTemplates()
 
       // 获取当前分类的剩余模板
@@ -1060,38 +1095,47 @@ const confirmDelete = async (templateId) => {
 }
 
 // 导出提示词
-const exportTemplate = (templateId) => {
+const exportTemplate = async (templateId: string) => {
   try {
-    const templateJson = templateManager.exportTemplate(templateId)
-    const blob = new Blob([templateJson], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `template-${templateId}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    toast.success(t('template.success.exported'))
+    const templateJson = await getTemplateManager.value.exportTemplate(templateId);
+    const blob = new Blob([templateJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `template-${templateId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(t('template.success.exported'));
   } catch (error) {
-    console.error('导出提示词失败:', error)
-    toast.error(t('template.error.exportFailed'))
+    console.error('导出提示词失败:', error);
+    toast.error(t('template.error.exportFailed'));
   }
 }
 
 // 导入提示词
-const handleFileImport = (event) => {
-  const file = event.target.files[0]
+const fileInput = ref<HTMLInputElement | null>(null)
+const handleFileImport = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
   if (!file) return
 
   try {
     const reader = new FileReader()
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
-        templateManager.importTemplate(e.target.result)
-        loadTemplates()
+        if (e.target?.result && typeof e.target.result === 'string') {
+          await getTemplateManager.value.importTemplate(e.target.result)
+        } else {
+          // 让失败不再静默，明确地抛出错误
+          throw new Error('Failed to read file content as string.')
+        }
+        await loadTemplates()
         toast.success(t('template.success.imported'))
-        event.target.value = ''
+        if (target) {
+          target.value = ''
+        }
       } catch (error) {
         console.error('导入提示词失败:', error)
         toast.error(t('template.error.importFailed'))
@@ -1105,21 +1149,21 @@ const handleFileImport = (event) => {
 }
 
 // 复制内置提示词
-const copyTemplate = (template) => {
+const copyTemplate = (template: Template) => {
   showAddForm.value = true
   const isAdvanced = Array.isArray(template.content)
 
   form.value = {
     name: `${template.name} - 副本`,
-    content: isAdvanced ? '' : template.content,
+    content: isAdvanced ? '' : template.content as string,
     description: template.metadata.description || '',
     isAdvanced,
-    messages: isAdvanced ? [...template.content] : []
+    messages: isAdvanced ? [...template.content] as MessageTemplate[] : []
   }
 }
 
 // 选择提示词
-const selectTemplate = (template) => {
+const selectTemplate = (template: Template) => {
   emit('select', template, getCurrentTemplateType());
 }
 
@@ -1149,14 +1193,14 @@ const filteredTemplates = computed(() => {
 
 // 获取当前语言的语法指南内容
 const syntaxGuideMarkdown = computed(() => {
-  const locale = t.locale || 'zh-CN'
-  return syntaxGuideContent[locale] || syntaxGuideContent['zh-CN']
+  const lang = i18n.global.locale.value as keyof typeof syntaxGuideContent
+  return syntaxGuideContent[lang] || syntaxGuideContent['zh-CN']
 })
 
   // 处理内置模板语言变化
-  const handleLanguageChanged = (newLanguage) => {
+  const handleLanguageChanged = async (newLanguage: string) => {
     // 重新加载模板列表以反映新的语言
-    loadTemplates()
+    await loadTemplates()
 
     // 如果当前选中的模板是内置模板，需要重新选择以获取新语言版本
     const currentSelected = selectedTemplate.value
@@ -1164,7 +1208,7 @@ const syntaxGuideMarkdown = computed(() => {
     if (currentSelected && currentSelected.isBuiltin) {
       try {
         // 获取新语言版本的同一模板
-        const updatedTemplate = templateManager.getTemplate(currentSelected.id)
+        const updatedTemplate = await getTemplateManager.value.getTemplate(currentSelected.id)
         if (updatedTemplate) {
           emit('select', updatedTemplate, getCurrentTemplateType());
         }
@@ -1181,11 +1225,26 @@ const syntaxGuideMarkdown = computed(() => {
         }
       }
     }
+
+    // 发出语言变化事件，通知父组件
+    emit('languageChanged', newLanguage)
   }
+
+// 监听 props.templateType 变化，更新当前分类
+watch(() => props.templateType, (newTemplateType) => {
+  currentCategory.value = getCategoryFromProps()
+}, { immediate: true })
 
 // 生命周期钩子
 onMounted(async () => {
-  await loadTemplates()
+  console.log('[TemplateManager.vue] Component is mounted.');
+  console.log('[TemplateManager.vue] Injected services:', services);
+  if (services?.value) {
+    console.log('[TemplateManager.vue] TemplateManager instance from services:', getTemplateManager.value);
+  } else {
+    console.error('[TemplateManager.vue] Services not available on mount.');
+  }
+  await loadTemplates();
 })
 
 // 监听表单消息数量变化，只在新增消息时初始化新textarea
@@ -1206,7 +1265,7 @@ watch([() => showAddForm.value, () => editingTemplate.value, () => viewingTempla
 const initializeAllTextareas = () => {
   // 延迟执行，确保DOM已更新
   nextTick(() => {
-    const textareas = document.querySelectorAll('textarea.message-content-textarea')
+    const textareas = document.querySelectorAll<HTMLTextAreaElement>('textarea.message-content-textarea')
     
     textareas.forEach(textarea => {
       // 确保textarea可见且未初始化过
@@ -1215,6 +1274,38 @@ const initializeAllTextareas = () => {
       }
     })
   })
+}
+
+// 关闭模板管理器
+const close = () => {
+  emit('update:show', false)
+  emit('close')
+}
+
+const onBackdropClick = (event: MouseEvent) => {
+  if (event.target === event.currentTarget) {
+    close()
+  }
+}
+
+const onEditModalBackdropClick = (event: MouseEvent) => {
+  if (event.target === event.currentTarget) {
+    if (viewingTemplate.value) {
+      cancelEdit()
+    }
+  }
+}
+
+const onSyntaxGuideBackdropClick = (event: MouseEvent) => {
+  if (event.target === event.currentTarget) {
+    showSyntaxGuide.value = false
+  }
+}
+
+const onMigrationDialogBackdropClick = (event: MouseEvent) => {
+  if (event.target === event.currentTarget) {
+    migrationDialog.value.show = false
+  }
 }
 </script>
 

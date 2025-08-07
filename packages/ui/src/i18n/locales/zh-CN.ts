@@ -35,6 +35,8 @@ export default {
     version: 'V{version}',
     optimize: '优化',
     iterate: '迭代',
+    system: '系统',
+    user: '用户',
     copySuccess: '复制成功',
     copyFailed: '复制失败',
     appName: '提示词优化器',
@@ -94,6 +96,7 @@ export default {
     originalPrompt: '原始提示词',
     optimizeModel: '优化模型',
     templateLabel: '优化提示词',
+    originalPromptPlaceholder: '请输入需要优化的原始提示词...',
 
     // 新增：优化模式相关
     optimizationMode: '优化模式',
@@ -158,9 +161,9 @@ export default {
     // 占位符
     modelKeyPlaceholder: '请输入模型标识',
     displayNamePlaceholder: '请输入显示名称',
-    apiUrlPlaceholder: '请输入API地址',
+    apiUrlPlaceholder: 'https://api.example.com/v1',
     defaultModelPlaceholder: '输入或选择模型名称',
-    apiKeyPlaceholder: '请输入API密钥',
+    apiKeyPlaceholder: '请输入API密钥（可选）',
 
     // 确认信息
     deleteConfirm: '确定要删除此模型吗？此操作不可恢复。',
@@ -184,6 +187,7 @@ export default {
     selectModel: '选择一个模型',
     fetchModelsFailed: '获取模型列表失败：{error}',
     needApiKeyAndBaseUrl: '请先填写API地址和密钥',
+    needBaseUrl: '请先填写API地址',
 
     // 状态文本
     disabled: '已禁用',
@@ -477,7 +481,8 @@ export default {
       noDefaultTemplate: '无法加载默认提示词',
       optimizeProcessFailed: '优化过程出错',
       testProcessError: '测试过程中发生错误',
-      initTemplateFailed: '初始化模板选择失败'
+      initTemplateFailed: '初始化模板选择失败',
+      appInitFailed: '应用初始化失败，请刷新或联系支持'
     },
     success: {
       optimizeSuccess: '优化成功',
@@ -487,6 +492,7 @@ export default {
       templateSelected: '已选择{type}提示词: {name}',
       historyClear: '历史记录已清空',
       historyChainDeleted: '历史记录已删除',
+      historyLoaded: '历史记录已加载',
       exitCompare: '已退出对比模式',
       compareEnabled: '对比模式已启用'
     },
@@ -496,11 +502,13 @@ export default {
     },
     info: {
       modelUpdated: '模型已更新',
-      templateSelected: '选择模板'
+      templateSelected: '选择模板',
+      optimizationModeAutoSwitched: '已自动切换到{mode}提示词优化模式'
     }
   },
   log: {
     info: {
+      initializing: '正在初始化...',
       initBaseServicesStart: '开始初始化基础服务...',
       templateList: '模板列表',
       createPromptService: '创建提示词服务...',
@@ -528,7 +536,7 @@ export default {
       button: '导入数据',
       success: '数据导入成功',
       failed: '数据导入失败',
-      successWithRefresh: '数据导入成功，页面将刷新以更新数据'
+      successWithRefresh: '数据导入成功，页面将刷新以应用所有更改'
     },
     warning: '导入数据将覆盖现有的历史记录、模型配置、自定义提示词和所有用户设置（包括主题、语言偏好等），请确保已备份重要数据。'
   },
@@ -576,5 +584,66 @@ export default {
     "tokens": {
       "unit": "令牌"
     }
+  },
+  updater: {
+    title: '应用更新',
+    checkForUpdates: '检查更新',
+    currentVersion: '当前版本',
+    versionLoadFailed: '版本获取失败',
+    downloadFailed: '下载失败',
+    dismiss: '关闭',
+    noStableVersionAvailable: '没有可用的正式版本',
+    noPrereleaseVersionAvailable: '没有可用的预览版本',
+    failedToGetStableInfo: '无法获取正式版更新信息',
+    failedToGetPrereleaseInfo: '无法获取预览版更新信息',
+    alreadyLatestStable: '当前已是最新正式版 ({version})',
+    alreadyLatestPrerelease: '当前已是最新预览版 ({version})',
+    stableDownloadFailed: '正式版下载失败: {error}',
+    prereleaseDownloadFailed: '预览版下载失败: {error}',
+    unknownError: '未知错误',
+    stable: '正式版',
+    prerelease: '预览版',
+    downloadFailedGeneric: '{type}下载失败: {error}',
+    warning: '警告',
+    info: '信息',
+    versionIgnored: '版本 {version} 已被忽略',
+    checkFailed: '检查失败',
+    ignored: '已忽略',
+    unignore: '取消忽略',
+    latestVersion: '最新版本',
+    latestStableVersion: '最新正式版',
+    noPrereleaseAvailable: '暂无预览版',
+    latestIsStable: '最新版本为正式版',
+    latestPrereleaseVersion: '最新预览版',
+    viewStable: '查看正式版',
+    viewPrerelease: '查看预览版',
+    allowPrerelease: '接收预览版更新',
+    noUpdatesAvailable: '当前已是最新版本',
+    checkNow: '检查更新',
+    checking: '正在检查更新...',
+    checkingForUpdates: '正在检查更新...',
+    newVersionAvailable: '发现新版本',
+    viewDetails: '查看详情',
+    downloadUpdate: '下载更新',
+    download: '下载',
+    updateAvailable: '有更新',
+    hasUpdate: '有更新',
+    details: '详情',
+    ignore: '忽略',
+    ignoreVersion: '忽略此版本',
+    downloading: '正在下载更新...',
+    downloadingShort: '下载中...',
+    downloadComplete: '下载完成',
+    clickInstallToRestart: '点击下方按钮安装并重启应用',
+    installAndRestart: '安装并重启',
+    updateError: '更新失败',
+    downloadError: '下载失败',
+    installError: '安装失败',
+    upToDate: '已是最新版本',
+    viewOnGitHub: '在 GitHub 上查看',
+    devEnvironment: '开发环境：更新检查已禁用',
+    clickToCheck: '点击检查更新',
+    noReleasesFound: '未找到发布版本。此项目可能尚未发布任何版本。',
+    noStableReleasesFound: '未找到正式版本。可能只有预览版本可用。'
   }
-}; 
+};

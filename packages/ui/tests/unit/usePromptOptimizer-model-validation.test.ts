@@ -10,12 +10,7 @@ vi.mock('../../src/composables/useToast', () => ({
   })
 }))
 
-vi.mock('../../src/composables/useStorage', () => ({
-  useStorage: () => ({
-    getItem: vi.fn().mockResolvedValue(null),
-    setItem: vi.fn().mockResolvedValue(undefined)
-  })
-}))
+// useStorage已被移除，不再需要mock
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -37,7 +32,7 @@ describe('usePromptOptimizer Model Validation', () => {
     }
 
     mockTemplateManager = {
-      ensureInitialized: vi.fn().mockResolvedValue(undefined),
+  
       getTemplate: vi.fn().mockReturnValue({
         id: 'test-template',
         name: 'Test Template',

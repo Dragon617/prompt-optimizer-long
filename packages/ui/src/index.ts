@@ -1,4 +1,4 @@
-﻿// 导入样式
+// 导入样式
 import 'element-plus/dist/index.css'
 import './styles/index.css'
 import './styles/scrollbar.css'
@@ -6,7 +6,7 @@ import './styles/common.css'
 import './styles/theme.css'
 
 // 导出插件
-export { installI18n, i18n } from './plugins/i18n'
+export { installI18n, installI18nOnly, initializeI18nWithStorage, setI18nServices, i18n } from './plugins/i18n'
 
 /**
  * 组件导出
@@ -35,6 +35,7 @@ export { default as DataManagerUI } from './components/DataManager.vue'
 export { default as OptimizationModeSelectorUI } from './components/OptimizationModeSelector.vue'
 export { default as TextDiffUI } from './components/TextDiff.vue'
 export { default as OutputDisplayFullscreen } from './components/OutputDisplayFullscreen.vue'
+export { default as UpdaterIcon } from './components/UpdaterIcon.vue'
 
 // 导出指令
 export { clickOutside } from './directives/clickOutside'
@@ -42,15 +43,44 @@ export { clickOutside } from './directives/clickOutside'
 // 导出 composables
 export * from './composables'
 
-// 从core重新导出需要的内容
+// 从core重新导出需要的内容, 仅保留工厂函数、代理类和必要的工具/类型
 export {
-    templateManager,
-    modelManager,
-    historyManager,
-    dataManager,
+    StorageFactory,
+    DexieStorageProvider,
+    ModelManager,
+    createModelManager,
+    ElectronModelManagerProxy,
+    TemplateManager,
+    createTemplateManager,
+    ElectronTemplateManagerProxy,
+    createTemplateLanguageService,
+    ElectronTemplateLanguageServiceProxy,
+    HistoryManager,
+    createHistoryManager,
+    ElectronHistoryManagerProxy,
+    DataManager,
+    createDataManager,
+    ElectronDataManagerProxy,
     createLLMService,
-    createPromptService
+    ElectronLLMProxy,
+    createPromptService,
+    ElectronPromptServiceProxy,
+    createPreferenceService,
+    ElectronPreferenceServiceProxy,
+    createCompareService,
+    isRunningInElectron,
+    waitForElectronApi,
 } from '@prompt-optimizer/core'
 
 // 导出类型
-export type { OptimizationMode } from '@prompt-optimizer/core'
+export type {
+    OptimizationMode,
+    IModelManager,
+    ITemplateManager,
+    IHistoryManager,
+    ILLMService,
+    IPromptService,
+    IPreferenceService,
+    ICompareService,
+    Template
+} from '@prompt-optimizer/core'

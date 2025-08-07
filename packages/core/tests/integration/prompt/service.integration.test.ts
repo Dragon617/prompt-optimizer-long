@@ -5,6 +5,10 @@ import { TemplateManager } from '../../../src/services/template/manager';
 import { HistoryManager } from '../../../src/services/history/manager';
 import { LocalStorageProvider } from '../../../src/services/storage/localStorageProvider';
 import { createLLMService } from '../../../src/services/llm/service';
+import { createTemplateManager } from '../../../src/services/template/manager';
+import { createTemplateLanguageService } from '../../../src/services/template/languageService';
+import { createModelManager } from '../../../src/services/model/manager';
+import { createHistoryManager } from '../../../src/services/history/manager';
 import { Template, MessageTemplate } from '../../../src/services/template/types';
 
 /**
@@ -30,10 +34,14 @@ describe('PromptService Integration Tests', () => {
   beforeEach(async () => {
     // 初始化存储和管理器
     storage = new LocalStorageProvider();
-    modelManager = new ModelManager(storage);
+    modelManager = createModelManager(storage);
     llmService = createLLMService(modelManager);
-    templateManager = new TemplateManager(storage);
-    historyManager = new HistoryManager(storage);
+    
+    const languageService = createTemplateLanguageService(storage);
+    templateManager = createTemplateManager(storage, languageService);
+
+    
+    historyManager = createHistoryManager(storage, modelManager);
 
     // 初始化服务
     promptService = new PromptService(modelManager, llmService, templateManager, historyManager);
@@ -48,8 +56,8 @@ describe('PromptService Integration Tests', () => {
         provider: 'gemini',
         apiKey: process.env.VITE_GEMINI_API_KEY!,
         baseURL: 'https://generativelanguage.googleapis.com/v1beta',
-        defaultModel: 'gemini-2.0-flash-exp',
-        models: ['gemini-2.0-flash-exp'],
+        defaultModel: 'gemini-2.0-flash',
+        models: ['gemini-2.0-flash'],
         enabled: true,
         llmParams: {
           temperature: 0.7,
@@ -71,6 +79,16 @@ describe('PromptService Integration Tests', () => {
       expect(result).toBeDefined();
       expect(typeof result).toBe('string');
       expect(result.length).toBeGreaterThan(0);
+
+      // 模拟UI层保存历史记录
+      await historyManager.createNewChain({
+        id: `test_${Date.now()}`,
+        originalPrompt: request.targetPrompt,
+        optimizedPrompt: result,
+        type: 'optimize',
+        modelKey: request.modelKey,
+        timestamp: Date.now()
+      });
 
       // 验证历史记录
       const records = await historyManager.getRecords();
@@ -142,10 +160,29 @@ describe('PromptService Integration Tests', () => {
       expect(typeof result).toBe('string');
       expect(result.length).toBeGreaterThan(0);
 
+      // 模拟UI层保存历史记录 - 对于迭代，需要先创建一个链，然后添加迭代
+      const chain = await historyManager.createNewChain({
+        id: `test_${Date.now()}`,
+        originalPrompt: 'Write a simple greeting',
+        optimizedPrompt: 'Hello world',
+        type: 'optimize',
+        modelKey: 'test-gemini',
+        timestamp: Date.now()
+      });
+
+      await historyManager.addIteration({
+        chainId: chain.chainId,
+        originalPrompt: 'Write a simple greeting',
+        optimizedPrompt: result,
+        modelKey: 'test-gemini',
+        templateId: 'iterate',
+        iterationNote: 'Make it more formal'
+      });
+
       // 验证历史记录
       const records = await historyManager.getRecords();
-      expect(records.length).toBe(1);
-      expect(records[0].type).toBe('iterate');
+      expect(records.length).toBe(2); // 一个初始记录 + 一个迭代记录
+      expect(records.find(r => r.type === 'iterate')).toBeDefined();
     }, 30000);
 
     it.runIf(hasGeminiKey)('should work with message-based iterate templates', async () => {

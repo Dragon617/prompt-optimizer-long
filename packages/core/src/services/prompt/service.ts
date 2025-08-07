@@ -1,14 +1,12 @@
 import { IPromptService, OptimizationRequest } from './types';
-import { Message, StreamHandlers } from '../llm/types';
+import { Message, StreamHandlers, ILLMService } from '../llm/types';
 import { PromptRecord } from '../history/types';
-import { ModelManager, modelManager as defaultModelManager } from '../model/manager';
-import { LLMService, createLLMService } from '../llm/service';
-import { TemplateManager, templateManager as defaultTemplateManager } from '../template/manager';
-import { HistoryManager, historyManager as defaultHistoryManager } from '../history/manager';
+import { IModelManager } from '../model/types';
+import { ITemplateManager } from '../template/types';
+import { IHistoryManager } from '../history/types';
 import { OptimizationError, IterationError, TestError, ServiceDependencyError } from './errors';
 import { ERROR_MESSAGES } from '../llm/errors';
 import { TemplateProcessor, TemplateContext } from '../template/processor';
-import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Default template IDs used by the system
@@ -24,10 +22,10 @@ const DEFAULT_TEMPLATES = {
  */
 export class PromptService implements IPromptService {
   constructor(
-    private modelManager: ModelManager,
-    private llmService: LLMService,
-    private templateManager: TemplateManager,
-    private historyManager: HistoryManager
+    private modelManager: IModelManager,
+    private llmService: ILLMService,
+    private templateManager: ITemplateManager,
+    private historyManager: IHistoryManager
   ) {
     this.checkDependencies();
   }
@@ -90,8 +88,8 @@ export class PromptService implements IPromptService {
         throw new OptimizationError('Model not found', request.targetPrompt);
       }
 
-      const template = this.templateManager.getTemplate(
-        request.templateId || this.getDefaultTemplateId(
+      const template = await this.templateManager.getTemplate(
+        request.templateId || await this.getDefaultTemplateId(
           request.optimizationMode === 'user' ? 'userOptimize' : 'optimize'
         )
       );
@@ -109,7 +107,8 @@ export class PromptService implements IPromptService {
       const result = await this.llmService.sendMessage(messages, request.modelKey);
 
       this.validateResponse(result, request.targetPrompt);
-      await this.saveOptimizationHistory(request, result);
+      // 注意：历史记录保存由UI层的historyManager.createNewChain方法处理
+      // 移除重复的saveOptimizationHistory调用以避免重复保存
 
       return result;
     } catch (error) {
@@ -142,7 +141,7 @@ export class PromptService implements IPromptService {
       // 获取迭代提示词
       let template;
       try {
-        template = this.templateManager.getTemplate(templateId || DEFAULT_TEMPLATES.ITERATE);
+        template = await this.templateManager.getTemplate(templateId || DEFAULT_TEMPLATES.ITERATE);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         throw new IterationError(`迭代失败: ${errorMessage}`, originalPrompt, iterateInput);
@@ -163,19 +162,8 @@ export class PromptService implements IPromptService {
       // 发送请求
       const result = await this.llmService.sendMessage(messages, modelKey);
 
-      // 保存历史记录
-      await this.historyManager.addRecord({
-        id: uuidv4(),
-        originalPrompt: iterateInput,
-        optimizedPrompt: result,
-        type: 'iterate',
-        chainId: originalPrompt,
-        version: 1,
-        previousId: originalPrompt,
-        timestamp: Date.now(),
-        modelKey,
-        templateId: templateId || DEFAULT_TEMPLATES.ITERATE
-      });
+      // 注意：迭代历史记录保存由UI层的historyManager.addIteration方法处理
+      // 移除重复的addRecord调用以避免重复保存
 
       return result;
     } catch (error) {
@@ -213,18 +201,8 @@ export class PromptService implements IPromptService {
 
       const result = await this.llmService.sendMessage(messages, modelKey);
 
-      // 保存历史记录
-      await this.historyManager.addRecord({
-        id: uuidv4(),
-        originalPrompt: systemPrompt || userPrompt,
-        optimizedPrompt: result,
-        type: 'optimize',
-        chainId: systemPrompt || userPrompt,
-        version: 1,
-        timestamp: Date.now(),
-        modelKey,
-        templateId: DEFAULT_TEMPLATES.TEST
-      });
+      // 注意：测试功能不保存历史记录，保持架构一致性
+      // 测试是临时性验证，不应与优化历史记录混合
 
       return result;
     } catch (error) {
@@ -307,8 +285,8 @@ export class PromptService implements IPromptService {
         throw new OptimizationError('Model not found', request.targetPrompt);
       }
 
-      const template = this.templateManager.getTemplate(
-        request.templateId || this.getDefaultTemplateId(
+      const template = await this.templateManager.getTemplate(
+        request.templateId || await this.getDefaultTemplateId(
           request.optimizationMode === 'user' ? 'userOptimize' : 'optimize'
         )
       );
@@ -335,11 +313,11 @@ export class PromptService implements IPromptService {
             if (response) {
               // 验证主要内容
               this.validateResponse(response.content, request.targetPrompt);
-              
-              // 保存优化历史 - 只保存主要内容
-              await this.saveOptimizationHistory(request, response.content);
+
+              // 注意：历史记录保存由UI层的historyManager.createNewChain方法处理
+              // 移除重复的saveOptimizationHistory调用以避免重复保存
             }
-            
+
             // 调用原始完成回调，传递结构化响应
             callbacks.onComplete(response);
           },
@@ -377,7 +355,7 @@ export class PromptService implements IPromptService {
       // 获取迭代提示词
       let template;
       try {
-        template = this.templateManager.getTemplate(templateId);
+        template = await this.templateManager.getTemplate(templateId);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         throw new IterationError(`Iteration failed: ${errorMessage}`, originalPrompt, iterateInput);
@@ -438,10 +416,10 @@ export class PromptService implements IPromptService {
   /**
    * 获取默认模板ID
    */
-  private getDefaultTemplateId(templateType: 'optimize' | 'userOptimize' | 'iterate'): string {
+  private async getDefaultTemplateId(templateType: 'optimize' | 'userOptimize' | 'iterate'): Promise<string> {
     try {
       // 尝试获取指定类型的模板列表
-      const templates = this.templateManager.listTemplatesByType(templateType);
+      const templates = await this.templateManager.listTemplatesByType(templateType);
       if (templates.length > 0) {
         // 返回列表中第一个模板的ID
         return templates[0].id;
@@ -453,7 +431,7 @@ export class PromptService implements IPromptService {
     // 如果指定类型没有模板，尝试获取相关类型的模板作为回退
     try {
       let fallbackTypes: ('optimize' | 'userOptimize' | 'iterate')[] = [];
-      
+
       if (templateType === 'optimize') {
         fallbackTypes = ['userOptimize']; // optimize类型回退到userOptimize
       } else if (templateType === 'userOptimize') {
@@ -461,17 +439,17 @@ export class PromptService implements IPromptService {
       } else if (templateType === 'iterate') {
         fallbackTypes = ['optimize', 'userOptimize']; // iterate类型回退到任意优化类型
       }
-      
+
       for (const fallbackType of fallbackTypes) {
-        const fallbackTemplates = this.templateManager.listTemplatesByType(fallbackType);
+        const fallbackTemplates = await this.templateManager.listTemplatesByType(fallbackType);
         if (fallbackTemplates.length > 0) {
           console.log(`Using fallback template type ${fallbackType} for ${templateType}`);
           return fallbackTemplates[0].id;
         }
       }
-      
+
       // 最后的回退：获取所有模板中第一个可用的内置模板
-      const allTemplates = this.templateManager.listTemplates();
+      const allTemplates = await this.templateManager.listTemplates();
       const availableTemplate = allTemplates.find(t => t.isBuiltin);
       if (availableTemplate) {
         console.warn(`Using fallback builtin template: ${availableTemplate.id} for type ${templateType}`);
@@ -485,27 +463,12 @@ export class PromptService implements IPromptService {
     throw new Error(`No templates available for type: ${templateType}`);
   }
 
-  /**
-   * 保存优化历史记录
-   */
-  private async saveOptimizationHistory(request: OptimizationRequest, result: string) {
-    await this.historyManager.addRecord({
-      id: uuidv4(),
-      originalPrompt: request.targetPrompt,
-      optimizedPrompt: result,
-      type: 'optimize',
-      chainId: uuidv4(),
-      version: 1,
-      timestamp: Date.now(),
-      modelKey: request.modelKey,
-      templateId: request.templateId || this.getDefaultTemplateId(
-        request.optimizationMode === 'user' ? 'userOptimize' : 'optimize'
-      ),
-      metadata: {
-        optimizationMode: request.optimizationMode
-      }
-    });
-  }
+  // saveOptimizationHistory 方法已移除
+  // 历史记录保存现在由UI层的historyManager.createNewChain方法处理
+
+  // saveTestHistory 方法已移除
+  // 测试功能不再保存历史记录，保持架构一致性
+  // 测试是临时性验证，不应与优化历史记录混合
 
   // 注意：迭代历史记录由UI层管理，而非核心服务层
   // 原因：
@@ -517,17 +480,4 @@ export class PromptService implements IPromptService {
   // 这种混合架构是经过权衡的设计决策
 }
 
-// 导出工厂函数
-export function createPromptService(
-  modelManager: ModelManager = defaultModelManager,
-  llmService: LLMService = createLLMService(modelManager),
-  templateManager: TemplateManager = defaultTemplateManager,
-  historyManager: HistoryManager = defaultHistoryManager
-): PromptService {
-  try {
-    return new PromptService(modelManager, llmService, templateManager, historyManager);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(`Initialization failed: ${errorMessage}`);
-  }
-} 
+

@@ -1,5 +1,6 @@
-import { IStorageProvider } from '../storage/types';
-import { StorageFactory } from '../storage/factory';
+
+import { IPreferenceService } from '../preference/types';
+import { UI_SETTINGS_KEYS } from '../../constants/storage-keys';
 
 /**
  * Supported built-in template languages
@@ -7,19 +8,32 @@ import { StorageFactory } from '../storage/factory';
 export type BuiltinTemplateLanguage = 'zh-CN' | 'en-US';
 
 /**
+ * Template language service interface
+ */
+export interface ITemplateLanguageService {
+  initialize(): Promise<void>;
+  getCurrentLanguage(): Promise<BuiltinTemplateLanguage>;
+  setLanguage(language: BuiltinTemplateLanguage): Promise<void>;
+  toggleLanguage(): Promise<BuiltinTemplateLanguage>;
+  isValidLanguage(language: string): Promise<boolean>;
+  getSupportedLanguages(): Promise<BuiltinTemplateLanguage[]>;
+  getLanguageDisplayName(language: BuiltinTemplateLanguage): string;
+  isInitialized(): boolean;
+}
+
+/**
  * Simplified built-in template language service
  */
-export class TemplateLanguageService {
-  private readonly STORAGE_KEY = 'builtin-template-language';
+export class TemplateLanguageService implements ITemplateLanguageService {
   private readonly SUPPORTED_LANGUAGES: BuiltinTemplateLanguage[] = ['zh-CN', 'en-US'];
   private readonly DEFAULT_LANGUAGE: BuiltinTemplateLanguage = 'en-US';
 
   private currentLanguage: BuiltinTemplateLanguage = this.DEFAULT_LANGUAGE;
-  private storage: IStorageProvider;
+  private preferenceService: IPreferenceService;
   private initialized = false;
 
-  constructor(storage?: IStorageProvider) {
-    this.storage = storage || StorageFactory.createDefault();
+  constructor(preferenceService: IPreferenceService) {
+    this.preferenceService = preferenceService;
   }
 
   /**
@@ -31,15 +45,21 @@ export class TemplateLanguageService {
     }
 
     try {
-      const savedLanguage = await this.storage.getItem(this.STORAGE_KEY);
-      
-      if (savedLanguage && this.isValidLanguage(savedLanguage)) {
+      const savedLanguage = await this.preferenceService.get(UI_SETTINGS_KEYS.BUILTIN_TEMPLATE_LANGUAGE, null);
+
+      if (savedLanguage && await this.isValidLanguage(savedLanguage)) {
         this.currentLanguage = savedLanguage as BuiltinTemplateLanguage;
       } else {
-        // Auto-detect: Chinese browsers use Chinese, others use English
-        const isChineseBrowser = navigator.language?.startsWith('zh') ?? false;
-        this.currentLanguage = isChineseBrowser ? 'zh-CN' : 'en-US';
-        await this.storage.setItem(this.STORAGE_KEY, this.currentLanguage);
+        let detectedLanguage: BuiltinTemplateLanguage = this.DEFAULT_LANGUAGE;
+
+        // Auto-detect only in browser-like environments where `navigator` is available.
+        if (typeof navigator !== 'undefined' && navigator.language) {
+          const isChineseBrowser = navigator.language.startsWith('zh');
+          detectedLanguage = isChineseBrowser ? 'zh-CN' : 'en-US';
+        }
+
+        this.currentLanguage = detectedLanguage;
+        await this.preferenceService.set(UI_SETTINGS_KEYS.BUILTIN_TEMPLATE_LANGUAGE, this.currentLanguage);
       }
       
       this.initialized = true;
@@ -53,7 +73,7 @@ export class TemplateLanguageService {
   /**
    * Get current language
    */
-  getCurrentLanguage(): BuiltinTemplateLanguage {
+  async getCurrentLanguage(): Promise<BuiltinTemplateLanguage> {
     return this.currentLanguage;
   }
 
@@ -61,12 +81,12 @@ export class TemplateLanguageService {
    * Set language
    */
   async setLanguage(language: BuiltinTemplateLanguage): Promise<void> {
-    if (!this.isValidLanguage(language)) {
+    if (!(await this.isValidLanguage(language))) {
       throw new Error(`Unsupported language: ${language}`);
     }
 
     this.currentLanguage = language;
-    await this.storage.setItem(this.STORAGE_KEY, language);
+    await this.preferenceService.set(UI_SETTINGS_KEYS.BUILTIN_TEMPLATE_LANGUAGE, language);
   }
 
   /**
@@ -81,15 +101,15 @@ export class TemplateLanguageService {
   /**
    * Check if language is valid
    */
-  isValidLanguage(language: string): boolean {
+  async isValidLanguage(language: string): Promise<boolean> {
     return this.SUPPORTED_LANGUAGES.includes(language as BuiltinTemplateLanguage);
   }
 
   /**
    * Get supported languages list
    */
-  getSupportedLanguages(): BuiltinTemplateLanguage[] {
-    return [...this.SUPPORTED_LANGUAGES];
+  async getSupportedLanguages(): Promise<BuiltinTemplateLanguage[]> {
+    return ['zh-CN', 'en-US'];
   }
 
   /**
@@ -114,5 +134,13 @@ export class TemplateLanguageService {
   }
 }
 
-// Export singleton instance
-export const templateLanguageService = new TemplateLanguageService();
+/**
+ * 创建模板语言服务实例的工厂函数
+ * @param preferenceService 偏好设置服务实例
+ * @returns 模板语言服务实例
+ */
+export function createTemplateLanguageService(
+  preferenceService: IPreferenceService
+): TemplateLanguageService {
+  return new TemplateLanguageService(preferenceService);
+}

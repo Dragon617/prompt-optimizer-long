@@ -45,14 +45,53 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, inject, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../composables/useToast'
-import { templateManager, templateLanguageService } from '@prompt-optimizer/core'
-import type { BuiltinTemplateLanguage } from '@prompt-optimizer/core'
+import type { BuiltinTemplateLanguage, ITemplateManager, TemplateLanguageService } from '@prompt-optimizer/core'
+import type { AppServices } from '../types/services'
 
 const { t } = useI18n()
 const toast = useToast()
+
+// 移除props定义，现在统一通过inject获取services
+// const props = defineProps({
+//   // templateManager和templateLanguageService现在通过inject获取
+// })
+
+// 统一使用inject获取services
+const services = inject<Ref<AppServices | null>>('services')
+if (!services) {
+  throw new Error('[BuiltinTemplateLanguageSwitch] services未正确注入，请确保在App组件中正确provide了services')
+}
+
+const getTemplateManager = computed(() => {
+  const servicesValue = services.value
+  if (!servicesValue) {
+    throw new Error('[BuiltinTemplateLanguageSwitch] services未初始化，请确保应用已正确启动')
+  }
+
+  const manager = servicesValue.templateManager
+  if (!manager) {
+    throw new Error('[BuiltinTemplateLanguageSwitch] templateManager未初始化，请确保服务已正确配置')
+  }
+
+  return manager
+})
+
+const getTemplateLanguageService = computed(() => {
+  const servicesValue = services.value
+  if (!servicesValue) {
+    throw new Error('[BuiltinTemplateLanguageSwitch] services未初始化，请确保应用已正确启动')
+  }
+
+  const service = servicesValue.templateLanguageService
+  if (!service) {
+    throw new Error('[BuiltinTemplateLanguageSwitch] templateLanguageService未初始化，请确保服务已正确配置')
+  }
+
+  return service
+})
 
 // Reactive state
 const currentLanguage = ref<BuiltinTemplateLanguage>('zh-CN')
@@ -62,14 +101,16 @@ const isChanging = ref(false)
 // Computed properties
 const getCurrentLanguageShort = computed(() => {
   try {
-    return templateLanguageService.getLanguageDisplayName(currentLanguage.value)
+    const service = getTemplateLanguageService.value
+    if (!service) {
+      throw new Error('Template language service not available')
+    }
+    return service.getLanguageDisplayName(currentLanguage.value)
   } catch (error) {
     console.error('Error getting current language short:', error)
     return '中文' // fallback to Chinese
   }
 })
-
-
 
 // Event emitters
 const emit = defineEmits<{
@@ -81,14 +122,19 @@ const emit = defineEmits<{
  */
 onMounted(async () => {
   try {
-    // Ensure template language service is initialized
-    if (!templateLanguageService.isInitialized()) {
-      await templateLanguageService.initialize()
+    const service = getTemplateLanguageService.value
+    if (!service) {
+      throw new Error('Template language service not available')
     }
 
-    // Get current language and supported languages
-    currentLanguage.value = templateLanguageService.getCurrentLanguage()
-    supportedLanguages.value = templateLanguageService.getSupportedLanguages()
+    // Ensure template language service is initialized
+    if (!service.isInitialized()) {
+      await service.initialize()
+    }
+
+    // Get current language and supported languages (now async)
+    currentLanguage.value = await service.getCurrentLanguage()
+    supportedLanguages.value = await service.getSupportedLanguages()
   } catch (error) {
     console.error('Failed to initialize builtin template language switch:', error)
     // Set fallback values
@@ -115,9 +161,14 @@ const handleLanguageToggle = async () => {
 
   try {
     isChanging.value = true
+    
+    const manager = getTemplateManager.value
+    if (!manager) {
+      throw new Error('Template manager not available')
+    }
 
     // Change the built-in template language
-    await templateManager.changeBuiltinTemplateLanguage(newLanguage)
+    await manager.changeBuiltinTemplateLanguage(newLanguage)
 
     // Update local state
     currentLanguage.value = newLanguage
@@ -127,7 +178,11 @@ const handleLanguageToggle = async () => {
 
     // Show success message
     try {
-      const languageName = templateLanguageService.getLanguageDisplayName(newLanguage)
+      const service = getTemplateLanguageService.value
+      if (!service) {
+        throw new Error('Template language service not available')
+      }
+      const languageName = service.getLanguageDisplayName(newLanguage)
       toast.success(t('template.languageChanged', { language: languageName }))
     } catch (toastError) {
       console.error('Failed to show success toast:', toastError)
@@ -153,8 +208,13 @@ const handleLanguageToggle = async () => {
 /**
  * Refresh current language (useful for external updates)
  */
-const refresh = () => {
-  currentLanguage.value = templateLanguageService.getCurrentLanguage()
+const refresh = async () => {
+  const service = getTemplateLanguageService.value
+  if (!service) {
+    throw new Error('Template language service not available')
+  }
+
+  currentLanguage.value = await service.getCurrentLanguage()
 }
 
 // Expose methods for parent components

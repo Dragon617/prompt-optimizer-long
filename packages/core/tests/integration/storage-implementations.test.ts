@@ -5,9 +5,13 @@ import { StorageFactory } from '../../src/services/storage/factory';
 import { HistoryManager } from '../../src/services/history/manager';
 import { TemplateManager } from '../../src/services/template/manager';
 import { ModelManager } from '../../src/services/model/manager';
+import { createTemplateManager } from '../../src/services/template/manager';
+import { createTemplateLanguageService } from '../../src/services/template/languageService';
+import { createModelManager } from '../../src/services/model/manager';
 import { IStorageProvider } from '../../src/services/storage/types';
 import { PromptRecord } from '../../src/services/history/types';
 import { v4 as uuidv4 } from 'uuid';
+import {createPreferenceService} from "../../src";
 
 // Mock uuid
 vi.mock('uuid', () => ({
@@ -240,9 +244,11 @@ describe('存储实现通用测试', () => {
 
       describe('HistoryManager 集成测试', () => {
         let historyManager: HistoryManager;
+        let modelManager: ModelManager;
 
         beforeEach(() => {
-          historyManager = new HistoryManager(storageProvider);
+          modelManager = createModelManager(storageProvider);
+          historyManager = new HistoryManager(storageProvider, modelManager);
         });
 
         it('应该能够添加和获取历史记录', async () => {
@@ -317,8 +323,11 @@ describe('存储实现通用测试', () => {
       describe('TemplateManager 集成测试', () => {
         let templateManager: TemplateManager;
 
-        beforeEach(() => {
-          templateManager = new TemplateManager(storageProvider);
+        beforeEach(async () => {
+          const preferenceService = createPreferenceService(storageProvider)
+          const languageService = createTemplateLanguageService(preferenceService);
+          templateManager = createTemplateManager(storageProvider, languageService);
+    
         });
 
         it('应该能够保存和获取模板', async () => {
@@ -336,7 +345,7 @@ describe('存储实现通用测试', () => {
           };
 
           await templateManager.saveTemplate(template);
-          const retrieved = templateManager.getTemplate('test-template');
+          const retrieved = await templateManager.getTemplate('test-template');
 
           expect(retrieved.id).toBe('test-template');
           expect(retrieved.name).toBe('Test Template');
@@ -372,7 +381,7 @@ describe('存储实现通用测试', () => {
           await templateManager.saveTemplate(template1);
           await templateManager.saveTemplate(template2);
 
-          const templates = templateManager.listTemplates();
+          const templates = await templateManager.listTemplates();
           const userTemplates = templates.filter(t => !t.isBuiltin);
 
           expect(userTemplates).toHaveLength(2);
@@ -382,8 +391,8 @@ describe('存储实现通用测试', () => {
       describe('ModelManager 集成测试', () => {
         let modelManager: ModelManager;
 
-        beforeEach(() => {
-          modelManager = new ModelManager(storageProvider);
+        beforeEach(async () => {
+          modelManager = createModelManager(storageProvider);
         });
 
         it('应该能够添加和获取模型配置', async () => {
@@ -446,33 +455,29 @@ describe('存储实现通用测试', () => {
       }).toThrow('Unsupported storage type: invalid');
     });
 
-    it('应该能够创建默认提供器', () => {
-      const provider = StorageFactory.createDefault();
-      expect(provider).toBeDefined();
-      // 默认应该是 Dexie（如果支持）或 localStorage
-      expect(
-        provider instanceof DexieStorageProvider || 
-        provider instanceof LocalStorageProvider
-      ).toBe(true);
+    it('应该能够创建指定类型的提供器', () => {
+      const dexieProvider = StorageFactory.create('dexie');
+      expect(dexieProvider).toBeDefined();
+      expect(dexieProvider instanceof DexieStorageProvider).toBe(true);
+
+      const localProvider = StorageFactory.create('localStorage');
+      expect(localProvider).toBeDefined();
+      expect(localProvider instanceof LocalStorageProvider).toBe(true);
     });
 
-    it('应该确保默认提供器是单例', () => {
+    it('应该确保相同类型的提供器是单例', () => {
       // 重置工厂状态
       StorageFactory.reset();
-      
-      // 创建多个默认提供器实例
-      const provider1 = StorageFactory.createDefault();
-      const provider2 = StorageFactory.createDefault();
-      const provider3 = StorageFactory.createDefault();
-      
+
+      // 创建多个相同类型的提供器实例
+      const provider1 = StorageFactory.create('memory');
+      const provider2 = StorageFactory.create('memory');
+      const provider3 = StorageFactory.create('memory');
+
       // 验证它们是同一个实例
       expect(provider1).toBe(provider2);
       expect(provider2).toBe(provider3);
       expect(provider1).toBe(provider3);
-      
-      // 验证getCurrentDefault返回相同实例
-      const currentDefault = StorageFactory.getCurrentDefault();
-      expect(currentDefault).toBe(provider1);
     });
 
     it('应该确保相同类型的提供器是单例', () => {
@@ -495,23 +500,17 @@ describe('存储实现通用测试', () => {
 
     it('应该能够重置工厂状态', () => {
       // 创建一些实例
-      const provider1 = StorageFactory.createDefault();
+      const memory1 = StorageFactory.create('memory');
       const localStorage1 = StorageFactory.create('localStorage');
-      
-      // 验证实例存在
-      expect(StorageFactory.getCurrentDefault()).toBe(provider1);
-      
+
       // 重置状态
       StorageFactory.reset();
-      
-      // 验证状态已重置
-      expect(StorageFactory.getCurrentDefault()).toBeNull();
-      
+
       // 创建新实例应该是不同的对象
-      const provider2 = StorageFactory.createDefault();
+      const memory2 = StorageFactory.create('memory');
       const localStorage2 = StorageFactory.create('localStorage');
-      
-      expect(provider2).not.toBe(provider1);
+
+      expect(memory2).not.toBe(memory1);
       expect(localStorage2).not.toBe(localStorage1);
     });
   });

@@ -35,6 +35,8 @@ export default {
     version: 'V{version}',
     optimize: 'Optimize',
     iterate: 'Iterate',
+    system: 'System',
+    user: 'User',
     copySuccess: 'Copied to clipboard',
     copyFailed: 'Copy Failed',
     appName: 'Prompt Optimizer',
@@ -94,6 +96,7 @@ export default {
     originalPrompt: 'Original Prompt',
     optimizeModel: 'Optimization Model',
     templateLabel: 'Optimization Template',
+    originalPromptPlaceholder: 'Enter your original prompt to optimize...',
 
     // New: Optimization Mode Related
     optimizationMode: 'Optimization Mode',
@@ -158,9 +161,9 @@ export default {
     // Placeholders
     modelKeyPlaceholder: 'Enter model key',
     displayNamePlaceholder: 'Enter display name',
-    apiUrlPlaceholder: 'Enter API URL',
+    apiUrlPlaceholder: 'https://api.example.com/v1',
     defaultModelPlaceholder: 'Type or select a model name',
-    apiKeyPlaceholder: 'Enter API key',
+    apiKeyPlaceholder: 'Enter API key (optional)',
 
     // Confirmation
     deleteConfirm: 'Are you sure you want to delete this model? This action cannot be undone.',
@@ -184,6 +187,7 @@ export default {
     selectModel: 'Select a model',
     fetchModelsFailed: 'Failed to fetch models: {error}',
     needApiKeyAndBaseUrl: 'Please fill API key and base URL first',
+    needBaseUrl: 'Please fill in API URL first',
 
     // Status Text
     disabled: 'Disabled',
@@ -477,7 +481,8 @@ export default {
       noDefaultTemplate: 'Failed to load default template',
       optimizeProcessFailed: 'Error in optimization process',
       testProcessError: 'Error occurred during test process',
-      initTemplateFailed: 'Failed to initialize template selection'
+      initTemplateFailed: 'Failed to initialize template selection',
+      appInitFailed: 'Application initialization failed, please refresh or contact support'
     },
     success: {
       optimizeSuccess: 'Optimization successful',
@@ -487,6 +492,7 @@ export default {
       templateSelected: '{type} template selected: {name}',
       historyClear: 'History cleared',
       historyChainDeleted: 'History record deleted',
+      historyLoaded: 'History loaded successfully',
       exitCompare: 'Exited compare mode',
       compareEnabled: 'Compare mode enabled'
     },
@@ -496,11 +502,13 @@ export default {
     },
     info: {
       modelUpdated: 'Model updated',
-      templateSelected: 'Template selected'
+      templateSelected: 'Template selected',
+      optimizationModeAutoSwitched: 'Automatically switched to {mode} prompt optimization mode'
     }
   },
   log: {
     info: {
+      initializing: 'Initializing...',
       initBaseServicesStart: 'Starting to initialize base services...',
       templateList: 'Template list',
       createPromptService: 'Creating prompt service...',
@@ -528,7 +536,7 @@ export default {
       button: 'Import Data',
       success: 'Data imported successfully',
       failed: 'Failed to import data',
-      successWithRefresh: 'Data imported successfully, page will refresh to update data'
+      successWithRefresh: 'Data imported successfully, page will refresh to apply all changes'
     },
     warning: 'Importing data will overwrite existing history records, model configurations, custom templates and all user settings (including theme, language preferences, etc.). Please ensure you have backed up important data.'
   },
@@ -576,5 +584,66 @@ export default {
     "tokens": {
       "unit": "tokens"
     }
+  },
+  updater: {
+    title: 'App Updates',
+    checkForUpdates: 'Check for updates',
+    currentVersion: 'Current Version',
+    versionLoadFailed: 'Failed to load version',
+    downloadFailed: 'Download Failed',
+    dismiss: 'Dismiss',
+    noStableVersionAvailable: 'No stable version available',
+    noPrereleaseVersionAvailable: 'No prerelease version available',
+    failedToGetStableInfo: 'Failed to get stable version update info',
+    failedToGetPrereleaseInfo: 'Failed to get prerelease version update info',
+    alreadyLatestStable: 'Already using the latest stable version ({version})',
+    alreadyLatestPrerelease: 'Already using the latest prerelease version ({version})',
+    stableDownloadFailed: 'Stable version download failed: {error}',
+    prereleaseDownloadFailed: 'Prerelease version download failed: {error}',
+    unknownError: 'Unknown error',
+    stable: 'Stable',
+    prerelease: 'Prerelease',
+    downloadFailedGeneric: '{type} download failed: {error}',
+    warning: 'Warning',
+    info: 'Information',
+    versionIgnored: 'Version {version} is ignored',
+    checkFailed: 'Check Failed',
+    ignored: 'Ignored',
+    unignore: 'Unignore',
+    latestVersion: 'Latest Version',
+    noPrereleaseAvailable: 'No prerelease available',
+    latestIsStable: 'Latest version is stable',
+    latestStableVersion: 'Latest Stable Version',
+    latestPrereleaseVersion: 'Latest Prerelease Version',
+    viewStable: 'View Stable',
+    viewPrerelease: 'View Prerelease',
+    allowPrerelease: 'Receive prerelease updates',
+    noUpdatesAvailable: 'You are using the latest version',
+    checkNow: 'Check for Updates',
+    checking: 'Checking for updates...',
+    checkingForUpdates: 'Checking for updates...',
+    newVersionAvailable: 'New version available',
+    viewDetails: 'View Details',
+    downloadUpdate: 'Download Update',
+    download: 'Download',
+    updateAvailable: 'Update Available',
+    hasUpdate: 'Update Available',
+    details: 'Details',
+    ignore: 'Ignore',
+    ignoreVersion: 'Ignore This Version',
+    downloading: 'Downloading update...',
+    downloadingShort: 'Downloading...',
+    downloadComplete: 'Download Complete',
+    clickInstallToRestart: 'Click the button below to install and restart the application',
+    installAndRestart: 'Install and Restart',
+    updateError: 'Update failed',
+    downloadError: 'Download failed',
+    installError: 'Installation failed',
+    upToDate: 'Up to Date',
+    devEnvironment: 'Development Environment: Update checking is disabled',
+    clickToCheck: 'Click to check for updates',
+    viewOnGitHub: 'View on GitHub',
+    noReleasesFound: 'No releases found. This project may not have published any versions yet.',
+    noStableReleasesFound: 'No stable releases found. Only prerelease versions may be available.'
   }
-}; 
+};

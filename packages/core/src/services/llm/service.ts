@@ -1,10 +1,11 @@
 import { ILLMService, Message, StreamHandlers, LLMResponse, ModelInfo, ModelOption } from './types';
 import { ModelConfig } from '../model/types';
-import { ModelManager, modelManager as defaultModelManager } from '../model/manager';
-import { APIError, RequestConfigError, ERROR_MESSAGES } from './errors';
+import { ModelManager } from '../model/manager';
+import { APIError, RequestConfigError } from './errors';
 import OpenAI from 'openai';
 import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
-import { isVercel, getProxyUrl } from '../../utils/environment';
+import { isVercel, getProxyUrl, isRunningInElectron } from '../../utils/environment';
+import { ElectronLLMProxy } from './electron-proxy';
 
 /**
  * LLM服务实现 - 基于官方SDK
@@ -45,9 +46,7 @@ export class LLMService implements ILLMService {
     if (!modelConfig.provider) {
       throw new RequestConfigError('模型提供商不能为空');
     }
-    if (!modelConfig.apiKey) {
-      throw new RequestConfigError(ERROR_MESSAGES.API_KEY_REQUIRED);
-    }
+    // API key允许为空字符串，某些服务（如Ollama）不需要API key
     if (!modelConfig.defaultModel) {
       throw new RequestConfigError('默认模型不能为空');
     }
@@ -69,10 +68,8 @@ export class LLMService implements ILLMService {
       processedBaseURL = processedBaseURL.slice(0, -'/chat/completions'.length);
     }
 
-    // 使用代理处理跨域问题
+    // 使用代理处理跨域问题（仅在 Vercel 环境）
     let finalBaseURL = processedBaseURL;
-    // 如果模型配置启用了Vercel代理且当前环境是Vercel，则使用代理
-    // 允许所有API包括OpenAI使用代理
     if (modelConfig.useVercelProxy === true && isVercel() && processedBaseURL) {
       finalBaseURL = getProxyUrl(processedBaseURL, isStream);
       console.log(`使用${isStream ? '流式' : ''}API代理:`, finalBaseURL);
@@ -83,13 +80,20 @@ export class LLMService implements ILLMService {
     const timeout = modelConfig.llmParams?.timeout !== undefined
                     ? modelConfig.llmParams.timeout
                     : defaultTimeout;
+    
     const config: any = {
       apiKey: apiKey,
       baseURL: finalBaseURL,
-      dangerouslyAllowBrowser: true,
-      timeout: timeout, // Use the new timeout logic
+      timeout: timeout,
       maxRetries: isStream ? 2 : 3
     };
+
+    // In any browser-like environment, we must set this flag to true 
+    // to bypass the SDK's environment check.
+    if (typeof window !== 'undefined') {
+      config.dangerouslyAllowBrowser = true;
+      console.log('[LLM Service] Browser-like environment detected. Setting dangerouslyAllowBrowser=true.');
+    }
 
     const instance = new OpenAI(config);
 
@@ -101,6 +105,8 @@ export class LLMService implements ILLMService {
    */
   private getGeminiModel(modelConfig: ModelConfig, systemInstruction?: string, isStream: boolean = false): GenerativeModel {
     const apiKey = modelConfig.apiKey || '';
+
+    // 创建GoogleGenerativeAI实例 - 旧版本直接传入字符串API key
     const genAI = new GoogleGenerativeAI(apiKey);
 
     // 创建模型配置
@@ -118,10 +124,8 @@ export class LLMService implements ILLMService {
     if (processedBaseURL?.endsWith('/v1beta')) {
       processedBaseURL = processedBaseURL.slice(0, -'/v1beta'.length);
     }
-    // 使用代理处理跨域问题
+    // 使用代理处理跨域问题（仅在 Vercel 环境）
     let finalBaseURL = processedBaseURL;
-    // 如果模型配置启用了Vercel代理且当前环境是Vercel，则使用代理
-    // 允许所有API包括OpenAI使用代理
     if (modelConfig.useVercelProxy === true && isVercel() && processedBaseURL) {
       finalBaseURL = getProxyUrl(processedBaseURL, isStream);
       console.log(`使用${isStream ? '流式' : ''}API代理:`, finalBaseURL);
@@ -698,13 +702,11 @@ export class LLMService implements ILLMService {
         modelConfig = customConfig as ModelConfig;
       }
 
-      // 验证必要的配置（仅验证API URL和密钥）
+      // 验证必要的配置（仅验证API URL）
       if (!modelConfig.baseURL) {
         throw new RequestConfigError('API URL不能为空');
       }
-      if (!modelConfig.apiKey) {
-        throw new RequestConfigError(ERROR_MESSAGES.API_KEY_REQUIRED);
-      }
+      // API key允许为空字符串，某些服务（如Ollama）不需要API key
 
       let models: ModelInfo[] = [];
 
@@ -867,7 +869,16 @@ export class LLMService implements ILLMService {
   }
 }
 
-// 导出工厂函数
-export function createLLMService(modelManager: ModelManager = defaultModelManager): LLMService {
+/**
+ * 创建LLM服务实例的工厂函数
+ * @param modelManager 模型管理器实例
+ * @returns LLM服务实例
+ */
+export function createLLMService(modelManager: ModelManager): ILLMService {
+  // 在Electron环境中，返回代理实例
+  if (isRunningInElectron()) {
+    console.log('[LLM Service Factory] Electron environment detected, using proxy.');
+    return new ElectronLLMProxy();
+  }
   return new LLMService(modelManager);
 } 

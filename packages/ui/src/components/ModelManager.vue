@@ -1,18 +1,18 @@
 <template>
   <div
+    v-if="show"
     class="fixed inset-0 theme-mask z-[60] flex items-center justify-center overflow-y-auto"
-    @click="$emit('close')"
+    @click="onMainBackdropClick"
   >
     <div
       class="relative theme-manager-container w-full max-w-3xl m-4"
-      @click.stop
     >
       <div class="p-6 space-y-6">
         <!-- 标题和关闭按钮 -->
         <div class="flex items-center justify-between">
           <h2 class="text-xl font-semibold theme-manager-text">{{ t('modelManager.title') }}</h2>
           <button
-            @click="$emit('close')"
+            @click="close"
             class="theme-manager-text-secondary hover:theme-manager-text transition-colors text-xl"
           >
             ×
@@ -145,7 +145,6 @@
                       :hint-text="t('modelManager.clickToFetchModels')"
                       required
                       :placeholder="t('modelManager.defaultModelPlaceholder')"
-                      @select="handleModelSelect"
                       @fetch-options="handleFetchEditingModels"
                     />
                   </div>
@@ -298,7 +297,8 @@
           </div>
 
           <!-- 添加模型弹窗 -->
-          <div v-if="showAddForm" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div v-if="showAddForm" 
+               class="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div class="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
             
             <div class="relative theme-manager-container w-full max-w-2xl max-h-[90vh] overflow-y-auto z-10" @click.stop>
@@ -338,13 +338,12 @@
                       :hint-text="t('modelManager.clickToFetchModels')"
                       required
                       :placeholder="t('modelManager.defaultModelPlaceholder')"
-                      @select="handleModelSelect"
                       @fetch-options="handleFetchNewModels"
                     />
                   </div>
                   <div>
                     <label class="block text-sm font-medium theme-manager-text mb-1.5">{{ t('modelManager.apiKey') }}</label>
-                    <input v-model="newModel.apiKey" type="password" required
+                    <input v-model="newModel.apiKey" type="password"
                           class="theme-manager-input"
                           :placeholder="t('modelManager.apiKeyPlaceholder')" />
                   </div>
@@ -488,21 +487,49 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'; // Added computed
+import { ref, onMounted, watch, computed, inject } from 'vue'; // Added computed and inject
 import { useI18n } from 'vue-i18n';
 import { 
-  modelManager,
   createLLMService,
+  advancedParameterDefinitions,
   checkVercelApiAvailability,
-  resetVercelStatusCache,
-  advancedParameterDefinitions // NEW IMPORT
+  resetVercelStatusCache
 } from '@prompt-optimizer/core';
 import { useToast } from '../composables/useToast';
 import InputWithSelect from './InputWithSelect.vue'
 
+
 const { t } = useI18n()
 const toast = useToast();
-const emit = defineEmits(['modelsUpdated', 'close', 'select']);
+const emit = defineEmits(['modelsUpdated', 'close', 'select', 'update:show']);
+
+// 组件属性
+const props = defineProps({
+  show: {
+    type: Boolean,
+    default: false
+  }
+});
+
+// 关闭模态框
+const close = () => {
+  emit('update:show', false);
+  emit('close');
+};
+
+const onMainBackdropClick = (event) => {
+  if (event.target === event.currentTarget) {
+    close();
+  }
+};
+
+// 通过依赖注入获取服务
+const services = inject('services');
+if (!services) {
+  throw new Error('Services not provided!');
+}
+const modelManager = services.value.modelManager;
+const llmService = services.value.llmService;
 
 // =============== 状态变量 ===============
 // UI状态
@@ -598,16 +625,16 @@ const testConnection = async (key) => {
     const model = await modelManager.getModel(key);
     if (!model) throw new Error(t('modelManager.noModelsAvailable'));
 
-    const llm = createLLMService(modelManager);
-    await llm.testConnection(key);
+    // 不再需要手动创建LLMService，使用注入的实例
+    await llmService.testConnection(key);
     toast.success(t('modelManager.testSuccess', { provider: model.name }));
   } catch (error) {
     console.error('连接测试失败:', error);
     const model = await modelManager.getModel(key);
     const modelName = model?.name || key;
-    toast.error(t('modelManager.testFailed', { 
-      provider: modelName, 
-      error: error.message || 'Unknown error' 
+    toast.error(t('modelManager.testFailed', {
+      provider: modelName,
+      error: error.message || 'Unknown error'
     }));
   } finally {
     delete testingConnections.value[key];
@@ -686,7 +713,7 @@ const editModel = async (key) => {
       originalKey: key, // 保存原始key
       name: model.name,
       baseURL: model.baseURL,
-      defaultModel: model.defaultModel,
+      defaultModel: typeof model.defaultModel === 'string' ? model.defaultModel : (model.defaultModel?.value || model.defaultModel?.id || ''),
       apiKey: maskedApiKey,
       displayMaskedKey: true,
       originalApiKey: model.apiKey,
@@ -779,10 +806,7 @@ const addDefaultModelOptions = (providerKey) => {
     modelOptions.value = [];
   }
 };
-const handleModelSelect = (option) => {
-  // This can be expanded if additional logic is needed when model is selected
-  console.log('Selected model:', option);
-};
+
 const handleFetchEditingModels = async () => {
   if (!editingModel.value) {
     return;
@@ -803,14 +827,14 @@ const handleFetchEditingModels = async () => {
       }
     }
     
-    // 检查必要的参数
-    if (!apiKey || !baseURL) {
-      toast.error(t('modelManager.needApiKeyAndBaseUrl'));
+    // 检查必要的参数 - API key允许为空
+    if (!baseURL) {
+      toast.error(t('modelManager.needBaseUrl'));
       return;
     }
     
-    // 使用 LLM 服务获取模型列表
-    const llm = createLLMService(modelManager);
+    // 使用注入的 LLM 服务获取模型列表
+    // const llm = createLLMService(modelManager);
     
     // 构建自定义配置
     const customConfig = {
@@ -824,12 +848,12 @@ const handleFetchEditingModels = async () => {
     const providerKey = editingModel.value.originalKey || editingModel.value.key;
     
     // 获取模型列表
-    const models = await llm.fetchModelList(providerKey, customConfig);
+    const models = await llmService.fetchModelList(providerKey, customConfig);
     
     if (models.length > 0) {
       modelOptions.value = models;
       toast.success(t('modelManager.fetchModelsSuccess', {count: models.length}));
-      
+
       // 如果当前选择的模型不在列表中，默认选择第一个
       if (!models.some(m => m.value === editingModel.value.defaultModel)) {
         editingModel.value.defaultModel = models[0].value;
@@ -861,17 +885,17 @@ const handleFetchNewModels = async () => {
   const baseURL = newModel.value.baseURL;
   const provider = newModel.value.key || 'custom';
   
-  // 检查必要的参数
-  if (!apiKey || !baseURL) {
-    toast.error(t('modelManager.needApiKeyAndBaseUrl'));
+  // 检查必要的参数 - API key允许为空
+  if (!baseURL) {
+    toast.error(t('modelManager.needBaseUrl'));
     return;
   }
   
   isLoadingModels.value = true;
   
   try {
-    // 使用 LLM 服务获取模型列表
-    const llm = createLLMService(modelManager);
+    // 使用注入的 LLM 服务获取模型列表
+    // const llm = createLLMService(modelManager);
     
     // 构建自定义配置
     const customConfig = {
@@ -882,12 +906,12 @@ const handleFetchNewModels = async () => {
     };
     
     // 获取模型列表
-    const models = await llm.fetchModelList(provider, customConfig);
+    const models = await llmService.fetchModelList(provider, customConfig);
     
     if (models.length > 0) {
       modelOptions.value = models;
       toast.success(t('modelManager.fetchModelsSuccess', {count: models.length}));
-      
+
       // 默认选择第一个模型
       newModel.value.defaultModel = models[0].value;
     } else {
@@ -921,20 +945,23 @@ const saveEdit = async () => {
     
     const originalKey = editingModel.value.originalKey;
     
-    // 创建更新配置对象
+    // 创建更新配置对象，ElectronProxy会自动处理序列化
     const config = {
       name: editingModel.value.name,
       baseURL: editingModel.value.baseURL,
       // 如果是掩码密钥，使用原始密钥；否则使用新输入的密钥
-      apiKey: editingModel.value.displayMaskedKey 
-        ? editingModel.value.originalApiKey 
+      apiKey: editingModel.value.displayMaskedKey
+        ? editingModel.value.originalApiKey
         : editingModel.value.apiKey,
       defaultModel: editingModel.value.defaultModel,
-      models: [editingModel.value.defaultModel], // 可以根据需要扩展
+      // 确保models数组包含defaultModel，避免验证错误
+      models: modelOptions.value.length > 0
+        ? modelOptions.value.map(opt => opt.value)
+        : [editingModel.value.defaultModel],
       useVercelProxy: editingModel.value.useVercelProxy,
       provider: editingModel.value.provider || 'custom',
-      enabled: editingModel.value.enabled !== undefined 
-        ? editingModel.value.enabled 
+      enabled: editingModel.value.enabled !== undefined
+        ? editingModel.value.enabled
         : true,
       llmParams: editingModel.value.llmParams || {}
     };
@@ -963,10 +990,14 @@ const saveEdit = async () => {
 // 添加自定义模型
 const addCustomModel = async () => {
   try {
+    // ElectronProxy会自动处理序列化
     const config = {
       name: newModel.value.name,
       baseURL: newModel.value.baseURL,
-      models: [newModel.value.defaultModel],
+      // 确保models数组包含defaultModel，避免验证错误
+      models: modelOptions.value.length > 0
+        ? modelOptions.value.map(opt => opt.value)
+        : [newModel.value.defaultModel],
       defaultModel: newModel.value.defaultModel,
       apiKey: newModel.value.apiKey,
       enabled: true,
@@ -1208,6 +1239,8 @@ watch(() => newModel.value.key, (newKey) => {
   }
 });
  
+
+
 // =============== 生命周期钩子 ===============
 // 初始化
 onMounted(() => {

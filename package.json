@@ -1,6 +1,6 @@
 {
   "name": "prompt-optimizer",
-  "version": "1.2.0",
+  "version": "1.4.1",
   "private": true,
   "packageManager": "pnpm@10.6.1",
   "engines": {
@@ -9,43 +9,41 @@
     "yarn": "请使用pnpm代替yarn"
   },
   "scripts": {
+    "build": "npm-run-all build:core build:ui build:parallel",
     "build:core": "pnpm -F @prompt-optimizer/core build",
     "build:ui": "pnpm -F @prompt-optimizer/ui build",
+    "build:parallel": "npm-run-all --parallel build:web build:ext",
     "build:web": "pnpm -F @prompt-optimizer/web build",
     "build:ext": "pnpm -F @prompt-optimizer/extension build",
-    "build": "pnpm -r build",
-    "watch:ui": "pnpm -F @prompt-optimizer/ui build --watch",
-    "dev": "npm-run-all dev:setup dev:parallel",
-    "dev:setup": "npm-run-all clean:dist build:core build:ui",
-    "dev:parallel": "concurrently -k -p \"[{name}]\" -n \"UI,WEB\" \"pnpm run watch:ui\" \"pnpm run dev:web\"",
-    "dev:web": "pnpm -F @prompt-optimizer/web dev",
+    "build:desktop-only": "pnpm -F @prompt-optimizer/desktop build",
+    "build:desktop": "npm-run-all build:core build:ui build:web build:desktop-only",
+    "dev": "npm-run-all clean:dist build:core build:ui dev:parallel",
+    "dev:fresh": "npm-run-all clean pnpm-install dev",
+    "dev:parallel": "concurrently -k -p \"[{name}]\" -n \"UI,WEB\" \"pnpm -F @prompt-optimizer/ui build --watch\" \"pnpm -F @prompt-optimizer/web dev\"",
     "dev:ext": "pnpm -F @prompt-optimizer/extension dev",
-    "test:core": "pnpm -F @prompt-optimizer/core test --run --passWithNoTests",
-    "test:ui": "pnpm -F @prompt-optimizer/ui test --run --passWithNoTests",
-    "test:web": "pnpm -F @prompt-optimizer/web test --run --passWithNoTests",
-    "test:ext": "pnpm -F @prompt-optimizer/extension test --run --passWithNoTests",
+    "dev:desktop": "npm-run-all clean:dist build:core build:ui dev:desktop:parallel",
+    "dev:desktop:fresh": "npm-run-all clean pnpm-install dev:desktop",
+    "dev:desktop:parallel": "concurrently -k -p \"[{name}]\" -n \"WEB,DESKTOP\" \"pnpm -F @prompt-optimizer/web dev\" \"pnpm -F @prompt-optimizer/desktop dev\"",
     "test": "pnpm -r test --run --passWithNoTests",
-    "test:watch": "pnpm -r test --watch --passWithNoTests",
-    "clean:core": "rimraf packages/core/dist",
-    "clean:ui": "rimraf packages/ui/dist",
-    "clean:web": "rimraf packages/web/dist",
-    "clean:ext": "rimraf packages/extension/dist",
-    "clean:vite:core": "rimraf packages/core/node_modules/.vite",
-    "clean:vite:ui": "rimraf packages/ui/node_modules/.vite",
-    "clean:vite:web": "rimraf packages/web/node_modules/.vite",
-    "clean:vite:ext": "rimraf packages/extension/node_modules/.vite",
-    "clean:vite": "npm-run-all clean:vite:core clean:vite:ui clean:vite:web clean:vite:ext",
-    "clean:dist": "npm-run-all clean:core clean:ui clean:web clean:ext",
     "clean": "npm-run-all clean:dist clean:vite",
-    "setup:install": "pnpm install",
-    "dev:fresh": "npm-run-all clean setup:install dev",
+    "clean:dist": "rimraf packages/core/dist packages/ui/dist packages/web/dist packages/extension/dist packages/desktop/dist packages/desktop/web-dist",
+    "clean:vite": "rimraf packages/core/node_modules/.vite packages/ui/node_modules/.vite packages/web/node_modules/.vite packages/extension/node_modules/.vite",
+    "pnpm-install": "pnpm install",
     "version:sync": "node scripts/sync-versions.js",
-    "version": "pnpm run version:sync && git add -A"
+    "version": "pnpm run version:sync && git add -A",
+    "version:prepare": "pnpm version --no-git-tag-version",
+    "version:tag": "git tag v$(node -p \"require('./package.json').version\")",
+    "version:publish": "git push origin v$(node -p \"require('./package.json').version\")",
+    "mcp:build": "pnpm --filter @prompt-optimizer/mcp-server build",
+    "mcp:dev": "pnpm --filter @prompt-optimizer/mcp-server dev",
+    "mcp:start": "pnpm --filter @prompt-optimizer/mcp-server start",
+    "mcp:test": "pnpm --filter @prompt-optimizer/mcp-server test"
   },
   "devDependencies": {
     "@intlify/unplugin-vue-i18n": "^6.0.3",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
+    "electron": "^37.1.0",
     "i18next": "^24.2.2",
     "i18next-browser-languagedetector": "^8.0.4",
     "lodash-unified": "^1.0.3",
@@ -67,9 +65,21 @@
     "@vueuse/shared": "^12.7.0",
     "async-validator": "^4.2.5",
     "dayjs": "^1.11.13",
+    "electron-to-chromium": "^1.5.177",
     "lodash-es": "^4.17.21",
     "memoize-one": "^6.0.0",
     "normalize-wheel-es": "^1.2.0",
     "vue-i18n": "^10.0.6"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ],
+    "overrides": {
+      "builder-util-runtime": "9.2.10"
+    }
   }
 }
