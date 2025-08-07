@@ -1,21 +1,28 @@
 FROM node:20-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+# 使用国内npm镜像源
+RUN npm config set registry https://registry.npmmirror.com
 RUN npm install -g corepack@latest && corepack enable
 
 FROM base AS build
 COPY . /app
 WORKDIR /app
+# 使用pnpm国内镜像源
+RUN echo 'registry=https://registry.npmmirror.com' > .npmrc
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm run build
 RUN pnpm mcp:build
 
 FROM nginx:stable-alpine
-# 使用国内镜像源加速apk包安装
+# 使用国内Alpine镜像源
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 # 安装Node.js、htpasswd工具、dos2unix和supervisor
 RUN apk add --no-cache apache2-utils dos2unix supervisor nodejs npm gettext curl
+
+# 配置npm使用国内镜像源
+RUN npm config set registry https://registry.npmmirror.com
 
 # 安装pnpm
 RUN npm install -g pnpm

@@ -3,14 +3,10 @@ version: '3.8'
 services:
   prompt-optimizer:
     image: linshen/prompt-optimizer:latest
-#     Alternatively, you can build from source:
-#     build:
-#        context: .
-#        dockerfile: Dockerfile
     container_name: prompt-optimizer
     restart: unless-stopped
     ports:
-      - "8999:${NGINX_PORT:-80}"      # Web应用端口（包含MCP服务器，通过/mcp路径访问）
+      - "8999:${NGINX_PORT:-80}"      # 确认此处的端口映射正确
     healthcheck:
       test: ["CMD", "sh", "-c", "curl -f http://localhost:${NGINX_PORT:-80}/ && curl -f http://localhost:${NGINX_PORT:-80}/mcp"]
       interval: 30s
@@ -18,7 +14,6 @@ services:
       retries: 3
       start_period: 40s
     environment:
-      # nginx内部端口配置
       - NGINX_PORT=${NGINX_PORT:-80}
 
       # Web应用API配置

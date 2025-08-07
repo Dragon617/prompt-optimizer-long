@@ -48,16 +48,32 @@ if %errorlevel% equ 0 (
     echo To view logs: docker-compose logs -f
     echo To stop services: docker-compose down
     echo ================================
+    
+    REM Wait a moment for services to start
+    timeout /t 5 /nobreak >nul
+    
+    REM Show running containers
+    echo.
+    echo Running containers:
+    docker-compose ps
+    
 ) else (
     echo.
     echo ================================
     echo Error occurred during deployment. Please check the logs above.
     echo ================================
+    
+    REM Show running containers
+    echo.
+    echo Running containers:
+    docker-compose ps
+    
+    REM Show logs for debugging
+    echo.
+    echo Last 20 lines of logs:
+    docker-compose logs --tail=20
+    
+    echo ================================
 )
-
-REM Show running containers
-echo.
-echo Running containers:
-docker-compose ps
 
 pause

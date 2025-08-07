@@ -158,8 +158,74 @@ services:
 ```
 </details>
 
+### 7. 一键部署脚本
+为了简化部署过程，项目提供了Windows批处理脚本，可以一键完成部署操作：
 
-### 9. MCP Server 使用说明
+- **[deploy-local.bat](file:///e:/prompt-optimizer/deploy-local.bat)** - 从本地源代码构建和部署（推荐用于开发和测试）
+- **[deploy-simple.bat](file:///e:/prompt-optimizer/deploy-simple.bat)** - 从Docker Hub拉取镜像并部署（推荐用于快速部署）
+
+使用方法：
+1. 确保已安装Docker和Docker Compose
+2. 双击相应的批处理脚本文件，或在命令行中运行：
+   ```
+   deploy-local.bat
+   ```
+3. 等待部署完成，根据提示访问应用
+
+### 8. 国内用户加速构建
+针对国内用户构建Docker镜像较慢的问题，项目提供了专门的优化方案：
+
+1. 使用 **[Dockerfile.cn](file:///e:/prompt-optimizer/Dockerfile.cn)** 替代默认的 Dockerfile
+   ```bash
+   # 使用国内优化的Dockerfile构建
+   docker build -f Dockerfile.cn -t prompt-optimizer .
+   ```
+
+2. 使用 **[docker-compose.cn.yml](file:///e:/prompt-optimizer/docker-compose.cn.yml)** 进行部署：
+   ```bash
+   # 使用国内优化的docker-compose文件部署
+   docker-compose -f docker-compose.cn.yml up -d
+   ```
+
+3. 该优化版本使用了国内镜像源：
+   - npm镜像：npmmirror.com
+   - Alpine Linux镜像：阿里云镜像
+   - Docker基础镜像：阿里云加速器
+
+4. 这些优化可以显著减少构建时间，特别是在下载依赖包时
+
+### 9. 故障排除
+如果部署后无法访问应用，请尝试以下步骤：
+
+1. **检查容器状态**：
+   ```bash
+   docker-compose ps
+   ```
+
+2. **查看容器日志**：
+   ```bash
+   docker-compose logs
+   ```
+
+3. **测试端口连通性**：
+   使用 [test-port.bat](file:///e:/prompt-optimizer/test-port.bat) 脚本测试端口是否可访问
+
+4. **重启服务**：
+   ```bash
+   docker-compose down
+   docker-compose up -d
+   ```
+
+5. **使用国内优化版本**：
+   如果默认版本构建失败，尝试使用国内优化版本：
+   ```bash
+   docker-compose -f docker-compose.cn.yml up -d --build
+   ```
+
+6. **检查防火墙设置**：
+   确保Windows防火墙没有阻止端口8999
+
+### 10. MCP Server 使用说明
 <details>
 <summary>点击查看 MCP Server 使用说明</summary>
 
