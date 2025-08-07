@@ -49,6 +49,7 @@ echo     ports:
 echo       - "8999:80"
 echo     environment:
 echo       - NGINX_PORT=80
+echo       - MCP_HTTP_PORT=3047
 echo     security_opt:
 echo       - no-new-privileges:true
 ) > docker-compose.local.yml

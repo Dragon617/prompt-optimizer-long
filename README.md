@@ -158,21 +158,8 @@ services:
 ```
 </details>
 
-### 7. 一键部署脚本
-为了简化部署过程，项目提供了Windows批处理脚本，可以一键完成部署操作：
 
-- **[deploy-local.bat](file:///e:/prompt-optimizer/deploy-local.bat)** - 从本地源代码构建和部署（推荐用于开发和测试）
-- **[deploy-simple.bat](file:///e:/prompt-optimizer/deploy-simple.bat)** - 从Docker Hub拉取镜像并部署（推荐用于快速部署）
-
-使用方法：
-1. 确保已安装Docker和Docker Compose
-2. 双击相应的批处理脚本文件，或在命令行中运行：
-   ```
-   deploy-local.bat
-   ```
-3. 等待部署完成，根据提示访问应用
-
-### 8. MCP Server 使用说明
+### 9. MCP Server 使用说明
 <details>
 <summary>点击查看 MCP Server 使用说明</summary>
 
@@ -416,4 +403,4 @@ pnpm dev:fresh        # 完整重置并重新启动开发环境
 
 - 提交 Issue
 - 发起 Pull Request
-- 加入讨论组"# prompt-optimizer-long" 
+- 加入讨论组

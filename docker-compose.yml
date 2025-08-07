@@ -30,8 +30,8 @@ services:
       - VITE_CUSTOM_API_BASE_URL=${VITE_CUSTOM_API_BASE_URL:-}
       - VITE_CUSTOM_API_MODEL=${VITE_CUSTOM_API_MODEL:-}
 
-      # MCP服务器配置（Docker内部固定端口3000，不使用MCP_HTTP_PORT）
-      - MCP_HTTP_PORT=${MCP_HTTP_PORT:-3047}  # Docker中固定使用3000端口
+      # MCP服务器配置（Docker内部使用3047端口）
+      - MCP_HTTP_PORT=${MCP_HTTP_PORT:-3047}  # Docker中固定使用3047端口
       - MCP_LOG_LEVEL=${MCP_LOG_LEVEL:-debug}
       - MCP_DEFAULT_LANGUAGE=${MCP_DEFAULT_LANGUAGE:-zh}
       - MCP_DEFAULT_MODEL_PROVIDER=${MCP_DEFAULT_MODEL_PROVIDER:-openai}
